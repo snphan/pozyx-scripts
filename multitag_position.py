@@ -17,9 +17,19 @@ import time
 
 import csv
 import pandas as pd
+from collections import deque
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+import numpy as np
+from PIL import Image
+import threading
+
+from collections import defaultdict
 
 info = []
 csv_name = input("Write a name: ")
+plotFlag = input("Plot? (y/n): ")
 f = open("{}.csv".format(csv_name), 'w')
 
 
@@ -59,16 +69,21 @@ class ReadyToLocalize(object):
 
     def loop(self):
         """Performs positioning and displays/exports the results."""
+        data = {}
         for tag_id in self.remote_id:
             position = Coordinates()
             self.printOrientationAcceleration(tag_id)
             status = self.pozyx.doPositioning(
                 position, self.dimension, self.height, self.algorithm, remote_id=tag_id)
             if status == POZYX_SUCCESS:
-                self.printPublishPosition(position, tag_id)
+                x, y = self.printPublishPosition(position, tag_id)
+                data["0x%0.4x" % tag_id] = {"x": x, "y": y}
             else:
-                self.printPublishErrorCode("positioning", tag_id)
+                data["0x%0.4x" % tag_id] = {"x": None, "y": None}
+            # else:
+            #     self.printPublishErrorCode("positioning", tag_id)
             sleep(0.001)
+        return data
 
     def printOrientationAcceleration(self, tag_id):
         global orientation
@@ -114,15 +129,17 @@ class ReadyToLocalize(object):
         current_time = time.time()
         info.append([current_time, position.x, position.y, position.z, heading, roll, pitch, accel_x, accel_y, accel_z,
                      ang_vel_x, ang_vel_z, ang_vel_y, "0x%0.4x" % network_id])
+
         df = pd.DataFrame(info)
         df.columns = ['Time', 'x', 'y', 'z', 'heading', 'roll', 'pitch', 'accel_x', 'accel_y', 'accel_z', 'angvel_x', 'angvel_y', 'angvel_z', 'tag_id']
         df.to_csv("{}.csv".format(csv_name), mode='a', index=False, header=None)
         info = []  # empty info after saving
-        if self.osc_udp_client is not None:
-            self.osc_udp_client.send_message(
-                "/position",
-                [network_id, int(position.x), int(position.y), int(position.z), float(heading), float(roll),
-                 float(pitch), float(accel_x), float(accel_y), float(accel_z), float(ang_vel_x), float(ang_vel_y), float(ang_vel_z)])
+        return position.x, position.y
+        # if self.osc_udp_client is not None:
+        #     self.osc_udp_client.send_message(
+        #         "/position",
+        #         [network_id, int(position.x), int(position.y), int(position.z), float(heading), float(roll),
+        #          float(pitch), float(accel_x), float(accel_y), float(accel_z), float(ang_vel_x), float(ang_vel_y), float(ang_vel_z)])
 
     def printPublishErrorCode(self, operation, network_id):
         """Prints the Pozyx's error and possibly sends it as a OSC packet"""
@@ -199,6 +216,7 @@ class ReadyToLocalize(object):
 
 
 if __name__ == "__main__":
+    BUFFER_LENGTH = 20
 
     # shortcut to not have to find out the port yourself
     serial_port = get_first_pozyx_serial_port()
@@ -243,7 +261,80 @@ if __name__ == "__main__":
     pozyx = PozyxSerial(serial_port)
     r = ReadyToLocalize(pozyx, osc_udp_client, anchors, algorithm, dimension, height, remote_id)
     r.setup()
-    while True:
-        r.loop()
+
+
+    buffer = {}
+    for id in remote_id:
+        tag_id =  "0x%0.4x" % id
+        buffer[tag_id] = {}
+        buffer[tag_id]["x"] = deque([])
+        buffer[tag_id]["y"] = deque([])
+
+    def loopWorker():
+        while True:
+            start = time.time()
+            data = r.loop()
+            print(f"Freq: {1/(time.time()-start)} Hz")
+            for k in data:
+                if(data[k]["x"]):
+                    x, y = data[k]["x"], data[k]["y"]
+                    buffer[k]["x"].append(x)
+                    buffer[k]["y"].append(y)
+                    if len(buffer[k]["x"]) > BUFFER_LENGTH:
+                        buffer[k]["x"].popleft()
+                        buffer[k]["y"].popleft()
+                    print(x, y, k)
+
+    t1 = threading.Thread(target=loopWorker)
+    
+    t1.start()
+
+    if (plotFlag.lower() == "y"):
+        bg_path = "ISL HQ Screenshot-rotated.png"
+        bg_multiplier=6.3
+        mydata = deque([1,2,3,4,5])
+        img = Image.open(bg_path).convert("L")
+        img = np.asarray(img)
+
+        # Create figure for plotting
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+
+        # Create a blank line. We will update the line in animate
+        lines = {}
+        for k in buffer:
+            line, = ax.plot(buffer[k]["x"], buffer[k]["y"], label=k)
+            lines[k] = line
+
+        print(lines)
+        ax.imshow(img, extent=[0,1803*bg_multiplier,0,1683*bg_multiplier], cmap='gray', vmin=0, vmax=255)
+
+        # Add labels
+        plt.title('Real Time Positioning')
+        plt.xlabel('X (mm)')
+        plt.ylabel('y (mm)')
+        plt.legend()
+
+        # This function is called periodically from FuncAnimation
+        def animate(i, buffer):
+
+            # Update line with new Y values
+            for k in buffer:
+                lines[k].set_xdata(buffer[k]["x"])
+                lines[k].set_ydata(buffer[k]["y"])
+
+            return lines
+
+        # Set up plot to call animate() function periodically
+        ani = animation.FuncAnimation(fig,
+            animate,
+            fargs=(buffer,),
+            interval=1,
+            blit=True)
+
+        plt.show()
+
+    t1.join()
+
 
 f.close()
