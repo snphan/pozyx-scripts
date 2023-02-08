@@ -3,7 +3,6 @@
 The Pozyx ready to localize tutorial (c) Pozyx Labs
 Please read the tutorial that accompanies this sketch:
 https://www.pozyx.io/Documentation/Tutorials/ready_to_localize/Python
-
 This tutorial requires at least the contents of the Pozyx Ready to Localize kit. It demonstrates the positioning capabilities
 of the Pozyx device both locally and remotely. Follow the steps to correctly set up your environment in the link, change the
 parameters and upload this sketch. Watch the coordinates change as you move your device around!
@@ -12,7 +11,7 @@ from time import sleep
 
 from pypozyx import (POZYX_POS_ALG_UWB_ONLY, POZYX_3D, Coordinates, POZYX_SUCCESS, PozyxConstants, version,
                      DeviceCoordinates, PozyxSerial, get_first_pozyx_serial_port, SingleRegister, DeviceList,
-                     PozyxRegisters, EulerAngles, Acceleration)
+                     PozyxRegisters, EulerAngles, Acceleration, LinearAcceleration, AngularVelocity)
 from pythonosc.udp_client import SimpleUDPClient
 import time
 
@@ -74,11 +73,17 @@ class ReadyToLocalize(object):
     def printOrientationAcceleration(self, tag_id):
         global orientation
         global acceleration
-        
+        global linear_acceleration
+        global angular_velocity
+        # Changed acceleration to linear accel (Ignores gravity)
         orientation = EulerAngles()
         acceleration = Acceleration()
+        linear_acceleration = LinearAcceleration()
+        angular_velocity = AngularVelocity()
         self.pozyx.getEulerAngles_deg(orientation, tag_id)
         self.pozyx.getAcceleration_mg(acceleration, tag_id)
+        self.pozyx.getLinearAcceleration_mg(linear_acceleration, tag_id)
+        self.pozyx.getAngularVelocity_dps(angular_velocity, tag_id)
         """print("Orientation: %s, acceleration: %s" % (str(orientation), str(acceleration)))"""
 
     def printPublishPosition(self, position, network_id):
@@ -86,8 +91,8 @@ class ReadyToLocalize(object):
         if network_id is None:
             network_id = 0
         print(
-            "POS ID {}, x(mm): {pos.x} y(mm): {pos.y} z(mm): {pos.z} Orientation: {orient} Acceleration: {accel}".format(
-                "0x%0.4x" % network_id, pos=position, orient=str(orientation), accel=str(acceleration)))
+            "POS ID {}, x(mm): {pos.x} y(mm): {pos.y} z(mm): {pos.z} Orientation: {orient} Acceleration: {accel} AngularVelocity: {ang_vel}".format(
+                "0x%0.4x" % network_id, pos=position, orient=str(orientation), accel=str(linear_acceleration), ang_vel=str(angular_velocity)))
         global info
         """Separate orientation and acceleration strings into individual components"""
         orient = str(orientation)
@@ -95,23 +100,29 @@ class ReadyToLocalize(object):
         heading = (orient_sp[1])[:-1]
         roll = (orient_sp[3])[:-1]
         pitch = (orient_sp[5])
-        accel = str(acceleration)
+        accel = str(linear_acceleration)
         accel_sp = accel.split()
         accel_x = (accel_sp[1])[:-1]
         accel_y = (accel_sp[3])[:-1]
         accel_z = accel_sp[5]
+        ang_vel = str(angular_velocity)
+        ang_vel_sp = ang_vel.split()
+        ang_vel_x = (ang_vel_sp[1])[:-1]
+        ang_vel_y = (ang_vel_sp[3])[:-1]
+        ang_vel_z = (ang_vel_sp[5])
 
         current_time = time.time()
-        info.append([current_time, position.x, position.y, position.z, heading, roll, pitch, accel_x, accel_y, accel_z, "0x%0.4x" % network_id])
+        info.append([current_time, position.x, position.y, position.z, heading, roll, pitch, accel_x, accel_y, accel_z,
+                     ang_vel_x, ang_vel_z, ang_vel_y, "0x%0.4x" % network_id])
         df = pd.DataFrame(info)
-        df.columns = ['Time', 'x', 'y', 'z', 'heading', 'roll', 'pitch', 'accel_x', 'accel_y', 'accel_z', 'tag_id']
+        df.columns = ['Time', 'x', 'y', 'z', 'heading', 'roll', 'pitch', 'accel_x', 'accel_y', 'accel_z', 'angvel_x', 'angvel_y', 'angvel_z', 'tag_id']
         df.to_csv("{}.csv".format(csv_name), mode='a', index=False, header=None)
         info = []  # empty info after saving
         if self.osc_udp_client is not None:
             self.osc_udp_client.send_message(
                 "/position",
                 [network_id, int(position.x), int(position.y), int(position.z), float(heading), float(roll),
-                 float(pitch), float(accel_x), float(accel_y), float(accel_z)])
+                 float(pitch), float(accel_x), float(accel_y), float(accel_z), float(ang_vel_x), float(ang_vel_y), float(ang_vel_z)])
 
     def printPublishErrorCode(self, operation, network_id):
         """Prints the Pozyx's error and possibly sends it as a OSC packet"""
@@ -145,7 +156,7 @@ class ReadyToLocalize(object):
                 status &= self.pozyx.addDevice(anchor, tag_id)
             if len(self.anchors) > 4:
                 status &= self.pozyx.setSelectionOfAnchors(PozyxConstants.ANCHOR_SELECT_AUTO, len(self.anchors),
-                                                        remote_id=tag_id)
+                                                           remote_id=tag_id)
 
             if save_to_flash:
                 self.pozyx.saveAnchorIds(tag_id)
@@ -219,10 +230,9 @@ if __name__ == "__main__":
                DeviceCoordinates(0x684B, 1, Coordinates(800, 4500, 2400)),
                DeviceCoordinates(0x1139, 1, Coordinates(9255, 2813, 2400)),
                DeviceCoordinates(0x1101, 1, Coordinates(5080, 3370, 2400)),
-               DeviceCoordinates(0x1149, 1, Coordinates(6530, 7400, 2400)),]
+               DeviceCoordinates(0x1149, 1, Coordinates(6530, 7400, 2400)), ]
     #  DeviceCoordinates(0x111C, 1, Coordinates(7150, 2600, 1230)),
     #  DeviceCoordinates(0x117B, 1, Coordinates(5650, 0, 2350))]
-
     # positioning algorithm to use, other is PozyxConstants.POSITIONING_ALGORITHM_TRACKING
     algorithm = PozyxConstants.POSITIONING_ALGORITHM_UWB_ONLY
     # positioning dimension. Others are PozyxConstants.DIMENSION_2D, PozyxConstants.DIMENSION_2_5D
