@@ -7,7 +7,7 @@ import time
 import sys
 
 if len(sys.argv) < 2:
-    data_file = input("type the name of data file: ")
+    data_file = input("type the name of data file: ") + ".csv"
 else: 
     data_file = f"{sys.argv[1]}.csv"
 

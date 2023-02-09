@@ -18,6 +18,7 @@ import time
 import csv
 import pandas as pd
 import sys
+from pathlib import Path
 
 info = []
 if len(sys.argv) < 2:
@@ -25,7 +26,10 @@ if len(sys.argv) < 2:
 else:
     csv_name = sys.argv[1]
 
-f = open("{}.csv".format(csv_name), 'w')
+data_path = Path(__file__).resolve().parents[0].joinpath("data")
+data_path.mkdir(exist_ok=True)
+
+f = open(data_path.joinpath(f"{csv_name}.csv"), 'w')
 
 
 class ReadyToLocalize(object):
