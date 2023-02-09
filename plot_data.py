@@ -5,11 +5,16 @@ from collections import deque
 from PIL import Image
 import time
 import sys
+from config import constants
+from pathlib import Path
+
+
+data_path = Path(__file__).resolve().parents[0].joinpath("data")
 
 if len(sys.argv) < 2:
-    data_file = input("type the name of data file: ") + ".csv"
+    data_file = data_path.joinpath(input("type the name of data file: ") + ".csv")
 else: 
-    data_file = f"{sys.argv[1]}.csv"
+    data_file = data_path.joinpath(f"{sys.argv[1]}.csv")
 
 bg_path = "ISL HQ Screenshot-rotated.png"
 bg_multiplier=6.3
@@ -17,7 +22,7 @@ mydata = deque([1,2,3,4,5])
 img = Image.open(bg_path).convert("L")
 img = np.asarray(img)
 
-remote_id = [0x684A, 0x683F]  # remote device network ID
+remote_id = constants.REMOTE_IDS  # remote device network ID
 buffer = {}
 
 for id in remote_id:

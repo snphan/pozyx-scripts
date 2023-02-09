@@ -19,6 +19,7 @@ import csv
 import pandas as pd
 import sys
 from pathlib import Path
+from config import constants
 
 info = []
 if len(sys.argv) < 2:
@@ -28,8 +29,9 @@ else:
 
 data_path = Path(__file__).resolve().parents[0].joinpath("data")
 data_path.mkdir(exist_ok=True)
+output_file_path = data_path.joinpath(f"{csv_name}.csv")
 
-f = open(data_path.joinpath(f"{csv_name}.csv"), 'w')
+f = open(output_file_path, 'w')
 
 
 class ReadyToLocalize(object):
@@ -125,7 +127,7 @@ class ReadyToLocalize(object):
                      ang_vel_x, ang_vel_z, ang_vel_y, "0x%0.4x" % network_id])
         df = pd.DataFrame(info)
         df.columns = ['Time', 'x', 'y', 'z', 'heading', 'roll', 'pitch', 'accel_x', 'accel_y', 'accel_z', 'angvel_x', 'angvel_y', 'angvel_z', 'tag_id']
-        df.to_csv("{}.csv".format(csv_name), mode='a', index=False, header=None)
+        df.to_csv(output_file_path, mode='a', index=False, header=None)
         info = []  # empty info after saving
         if self.osc_udp_client is not None:
             self.osc_udp_client.send_message(
@@ -215,7 +217,7 @@ if __name__ == "__main__":
         print("No Pozyx connected. Check your USB cable or your driver!")
         quit()
 
-    remote_id = [0x684A, 0x683F]  # remote device network ID
+    remote_id = constants.REMOTE_IDS  # remote device network ID
     remote = True  # whether to use a remote device
     if not remote:
         remote_id = None
