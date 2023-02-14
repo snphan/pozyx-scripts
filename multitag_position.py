@@ -17,10 +17,21 @@ import time
 
 import csv
 import pandas as pd
+import sys
+from pathlib import Path
+from config import constants
 
 info = []
-csv_name = input("Write a name: ")
-f = open("{}.csv".format(csv_name), 'w')
+if len(sys.argv) < 2:
+    csv_name = input("Write a name: ")
+else:
+    csv_name = sys.argv[1]
+
+data_path = Path(__file__).resolve().parents[0].joinpath("data")
+data_path.mkdir(exist_ok=True)
+output_file_path = data_path.joinpath(f"{csv_name}.csv")
+
+f = open(output_file_path, 'w')
 
 
 class ReadyToLocalize(object):
@@ -116,7 +127,7 @@ class ReadyToLocalize(object):
                      ang_vel_x, ang_vel_z, ang_vel_y, "0x%0.4x" % network_id])
         df = pd.DataFrame(info)
         df.columns = ['Time', 'x', 'y', 'z', 'heading', 'roll', 'pitch', 'accel_x', 'accel_y', 'accel_z', 'angvel_x', 'angvel_y', 'angvel_z', 'tag_id']
-        df.to_csv("{}.csv".format(csv_name), mode='a', index=False, header=None)
+        df.to_csv(output_file_path, mode='a', index=False, header=None)
         info = []  # empty info after saving
         if self.osc_udp_client is not None:
             self.osc_udp_client.send_message(
@@ -206,7 +217,7 @@ if __name__ == "__main__":
         print("No Pozyx connected. Check your USB cable or your driver!")
         quit()
 
-    remote_id = [0x684A, 0x683F]  # remote device network ID
+    remote_id = constants.REMOTE_IDS  # remote device network ID
     remote = True  # whether to use a remote device
     if not remote:
         remote_id = None
@@ -223,16 +234,33 @@ if __name__ == "__main__":
         osc_udp_client = SimpleUDPClient(ip, network_port)
 
     # necessary data for calibration, change the IDs and coordinates yourself according to your measurement
-    anchors = [DeviceCoordinates(0x685C, 1, Coordinates(10306, 8351, 2400)),
-               DeviceCoordinates(0x6837, 1, Coordinates(9220, 0, 2400)),  # Move up higher
-               DeviceCoordinates(0x6840, 1, Coordinates(17, 3, 2400)),
-               DeviceCoordinates(0x6863, 1, Coordinates(2517, 9931, 2400)),  # Move up higher
-               DeviceCoordinates(0x684B, 1, Coordinates(800, 4500, 2400)),
-               DeviceCoordinates(0x1139, 1, Coordinates(9255, 2813, 2400)),
-               DeviceCoordinates(0x1101, 1, Coordinates(5080, 3370, 2400)),
-               DeviceCoordinates(0x1149, 1, Coordinates(6530, 7400, 2400)), ]
-    #  DeviceCoordinates(0x111C, 1, Coordinates(7150, 2600, 1230)),
-    #  DeviceCoordinates(0x117B, 1, Coordinates(5650, 0, 2350))]
+    """8H ANCHORS"""
+    anchors = [
+        DeviceCoordinates(0x685C, 1, Coordinates(10306, 8351, 2400)),
+        DeviceCoordinates(0x6837, 1, Coordinates(9220, 0, 2400)),  # Move up higher
+        DeviceCoordinates(0x6840, 1, Coordinates(17, 3, 2400)),
+        DeviceCoordinates(0x6863, 1, Coordinates(2517, 9931, 2400)),  # Move up higher
+        DeviceCoordinates(0x684B, 1, Coordinates(800, 4500, 2400)),
+        DeviceCoordinates(0x1139, 1, Coordinates(9255, 2813, 2400)),
+        DeviceCoordinates(0x1101, 1, Coordinates(5080, 3370, 2400)),
+        DeviceCoordinates(0x1149, 1, Coordinates(6530, 7400, 2400)),
+        # DeviceCoordinates(0x111C, 1, Coordinates(7150, 2600, 1230)),
+        # DeviceCoordinates(0x117B, 1, Coordinates(5650, 0, 2350))
+    ]
+
+    # """8L ANCHORS"""
+    # anchors = [
+    #     DeviceCoordinates(0x685C, 1, Coordinates(10306, 8351, 130)),
+    #     DeviceCoordinates(0x6837, 1, Coordinates(9220, 0, 130)),  # Move up higher
+    #     DeviceCoordinates(0x6840, 1, Coordinates(17, 3, 130)),
+    #     DeviceCoordinates(0x6863, 1, Coordinates(2517, 9931, 130)),  # Move up higher
+    #     DeviceCoordinates(0x684B, 1, Coordinates(800, 4500, 130)),
+    #     # DeviceCoordinates(0x1139, 1, Coordinates(9604, 2082, 1000)),
+    #     DeviceCoordinates(0x1101, 1, Coordinates(5080, 3370, 130)),
+    #     DeviceCoordinates(0x1149, 1, Coordinates(6530, 7400, 130)),
+    #     # DeviceCoordinates(0x111C, 1, Coordinates(7150, 2600, 1230)),
+    #     # DeviceCoordinates(0x117B, 1, Coordinates(5650, 0, 2350))
+    # ]
     # positioning algorithm to use, other is PozyxConstants.POSITIONING_ALGORITHM_TRACKING
     algorithm = PozyxConstants.POSITIONING_ALGORITHM_UWB_ONLY
     # positioning dimension. Others are PozyxConstants.DIMENSION_2D, PozyxConstants.DIMENSION_2_5D
