@@ -16,8 +16,19 @@ if len(sys.argv) < 2:
 else: 
     data_file = data_path.joinpath(f"{sys.argv[1]}.csv")
 
-bg_path = "ISL HQ Screenshot-rotated.png"
-bg_multiplier=6.3
+bg_options = {
+    "ILS": {"path": "ISL HQ Screenshot-rotated.png", "multiplier": 6.3, },
+    "GR": {"path": "Glenrose Research First Floor Cropped.png", "multiplier": 14.75}
+}
+
+location = input(f'Select location {("/").join(list(bg_options.keys()))}: ')
+
+if location not in bg_options:
+    print("Location not found")
+    quit()
+
+bg_path = bg_options[location]["path"]
+bg_multiplier= bg_options[location]["multiplier"]
 mydata = deque([1,2,3,4,5])
 img = Image.open(bg_path).convert("L")
 img = np.asarray(img)
@@ -31,8 +42,6 @@ for id in remote_id:
     buffer[tag_id]["x"] = []
     buffer[tag_id]["y"] = []
 
-
-
 # Create figure for plotting
 fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1)
@@ -43,8 +52,7 @@ for k in buffer:
     line, = ax.plot(buffer[k]["x"], buffer[k]["y"], label=k)
     lines[k] = line
 
-ax.imshow(img, extent=[0,1803*bg_multiplier,0,1683*bg_multiplier], cmap='gray', vmin=0, vmax=255)
-
+ax.imshow(img, extent=[0,img.shape[1]*bg_multiplier,0,img.shape[0]*bg_multiplier], cmap='gray', vmin=0, vmax=255)
 # Add labels
 plt.title('Real Time Positioning')
 plt.xlabel('X (mm)')

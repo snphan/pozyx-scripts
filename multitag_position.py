@@ -248,19 +248,19 @@ if __name__ == "__main__":
         # DeviceCoordinates(0x117B, 1, Coordinates(5650, 0, 2350))
     ]
 
-    """8L ANCHORS"""
-    anchors = [
-        DeviceCoordinates(0x685C, 1, Coordinates(10306, 8351, 130)),
-        DeviceCoordinates(0x6837, 1, Coordinates(9220, 0, 130)),  # Move up higher
-        DeviceCoordinates(0x6840, 1, Coordinates(17, 3, 130)),
-        DeviceCoordinates(0x6863, 1, Coordinates(2517, 9931, 130)),  # Move up higher
-        DeviceCoordinates(0x684B, 1, Coordinates(800, 4500, 130)),
-        # DeviceCoordinates(0x1139, 1, Coordinates(9604, 2082, 1000)),
-        DeviceCoordinates(0x1101, 1, Coordinates(5080, 3370, 130)),
-        DeviceCoordinates(0x1149, 1, Coordinates(6530, 7400, 130)),
-        # DeviceCoordinates(0x111C, 1, Coordinates(7150, 2600, 1230)),
-        # DeviceCoordinates(0x117B, 1, Coordinates(5650, 0, 2350))
-    ]
+    # """8L ANCHORS"""
+    # anchors = [
+    #     DeviceCoordinates(0x685C, 1, Coordinates(10306, 8351, 130)),
+    #     DeviceCoordinates(0x6837, 1, Coordinates(9220, 0, 130)),  # Move up higher
+    #     DeviceCoordinates(0x6840, 1, Coordinates(17, 3, 130)),
+    #     DeviceCoordinates(0x6863, 1, Coordinates(2517, 9931, 130)),  # Move up higher
+    #     DeviceCoordinates(0x684B, 1, Coordinates(800, 4500, 130)),
+    #     # DeviceCoordinates(0x1139, 1, Coordinates(9604, 2082, 1000)),
+    #     DeviceCoordinates(0x1101, 1, Coordinates(5080, 3370, 130)),
+    #     DeviceCoordinates(0x1149, 1, Coordinates(6530, 7400, 130)),
+    #     # DeviceCoordinates(0x111C, 1, Coordinates(7150, 2600, 1230)),
+    #     # DeviceCoordinates(0x117B, 1, Coordinates(5650, 0, 2350))
+    # ]
     # positioning algorithm to use, other is PozyxConstants.POSITIONING_ALGORITHM_TRACKING
     algorithm = PozyxConstants.POSITIONING_ALGORITHM_UWB_ONLY
     # positioning dimension. Others are PozyxConstants.DIMENSION_2D, PozyxConstants.DIMENSION_2_5D
