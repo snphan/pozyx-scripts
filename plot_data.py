@@ -41,15 +41,18 @@ buffer = {}
 
 for tag_id in remote_id:
     buffer[tag_id] = {}
+    buffer[tag_id]["timestamp"] = []
     buffer[tag_id]["x"] = []
     buffer[tag_id]["y"] = []
     buffer[tag_id]["z"] = []
 
 # Create figure for plotting
 fig = plt.figure()
-(ax, axzpos) = fig.subplots(1,2, width_ratios=[3, 1])
+(axzpos, ax) = fig.subplots(2,1, height_ratios=[1, 3])
 axzpos.set_ylim(-100, 5000)
-axzpos.set_xlim(-1, 4)
+axzpos.set_title("Z Position")
+axzpos.set_ylabel("z (mm)")
+
 
 # Create a blank line. We will update the line in animate
 lines = {}
@@ -60,7 +63,7 @@ for k in buffer:
     lines[k]["xy"] = line
 
     # Plot z
-    line, = axzpos.plot([remote_id.index(k)]*(len(buffer[k]["z"])), buffer[k]["z"], 'o-', label=k)
+    line, = axzpos.plot([], buffer[k]["z"], 'o-', markersize=2, label=k)
     lines[k]["z"] = line
 
 
@@ -76,6 +79,7 @@ def animate(i, buffer):
 
     # Clear the buffer
     for k in buffer:
+        buffer[k]["timestamp"] = []
         buffer[k]["x"] = []
         buffer[k]["y"] = []
         buffer[k]["z"] = []
@@ -85,24 +89,29 @@ def animate(i, buffer):
         data = all_data[-20:]
         for one_data in data:
             splitted = one_data.split(",")
-            key = splitted[-1].replace("\n", "") 
+            key = splitted[-1].replace("\n", "")
+            timestamp = float(splitted[0]) 
             x = float(splitted[1])
             y = float(splitted[2])
             z = float(splitted[3])
+
+            buffer[key]["timestamp"].append(timestamp)
             buffer[key]["x"].append(x)
             buffer[key]["y"].append(y)
             buffer[key]["z"].append(z)
 
-    # Limit z to 3 points
-    for key in buffer:
-        buffer[key]["z"] = buffer[key]["z"][-3:]
-
     # Update line with new Y values
+    max_time = 0
+    min_time = float("inf")
     for k in lines:
         lines[k]["xy"].set_xdata(buffer[k]["x"])
         lines[k]["xy"].set_ydata(buffer[k]["y"])
         lines[k]["z"].set_ydata(buffer[k]["z"])
-        lines[k]["z"].set_xdata([remote_id.index(k)]*len(buffer[k]["z"]))
+        lines[k]["z"].set_xdata(buffer[k]["timestamp"])
+        if buffer[k]["timestamp"][-1] > max_time: max_time = buffer[k]["timestamp"][-1] + 1
+        if buffer[k]["timestamp"][0] < min_time: min_time = buffer[k]["timestamp"][0] - 1
+
+    axzpos.set_xlim(min_time, max_time)
 
     return [lines[tagid][data_type] for tagid in lines for data_type in lines[tagid]]
 
