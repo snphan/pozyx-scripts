@@ -21,18 +21,10 @@ import sys
 from pathlib import Path
 from config import constants
 
+
 info = []
-if len(sys.argv) < 2:
-    csv_name = input("Write a name: ")
-else:
-    csv_name = sys.argv[1]
-
-data_path = Path(__file__).resolve().parents[0].joinpath("data")
-data_path.mkdir(exist_ok=True)
-output_file_path = data_path.joinpath(f"{csv_name}.csv")
-
-f = open(output_file_path, 'w')
-
+csv_name = ""
+output_file_path = None
 
 class ReadyToLocalize(object):
     """Continuously calls the Pozyx positioning function and prints its position."""
@@ -211,6 +203,22 @@ class ReadyToLocalize(object):
 
 if __name__ == "__main__":
 
+    if len(sys.argv) < 2:
+        csv_name = input("Write a name: ")
+    else:
+        csv_name = sys.argv[1]
+
+    anchor_config = input(f"Select an Anchor Config ({('/').join(list(constants.ANCHOR_CONFIG.keys()))}): ")
+    if anchor_config not in constants.ANCHOR_CONFIG:
+        print("Invalid Anchor Config")
+        quit()
+
+    data_path = Path(__file__).resolve().parents[0].joinpath("data")
+    data_path.mkdir(exist_ok=True)
+    output_file_path = data_path.joinpath(f"{csv_name}.csv")
+
+    f = open(output_file_path, 'w')
+
     # shortcut to not have to find out the port yourself
     serial_port = get_first_pozyx_serial_port()
     if serial_port is None:
@@ -234,33 +242,8 @@ if __name__ == "__main__":
         osc_udp_client = SimpleUDPClient(ip, network_port)
 
     # necessary data for calibration, change the IDs and coordinates yourself according to your measurement
-    """8H ANCHORS"""
-    anchors = [
-        DeviceCoordinates(0x685C, 1, Coordinates(10306, 8351, 2400)),
-        DeviceCoordinates(0x6837, 1, Coordinates(9220, 0, 2400)),  # Move up higher
-        DeviceCoordinates(0x6840, 1, Coordinates(17, 3, 2400)),
-        DeviceCoordinates(0x6863, 1, Coordinates(2517, 9931, 2400)),  # Move up higher
-        DeviceCoordinates(0x684B, 1, Coordinates(800, 4500, 2400)),
-        DeviceCoordinates(0x1139, 1, Coordinates(9255, 2813, 2400)),
-        DeviceCoordinates(0x1101, 1, Coordinates(5080, 3370, 2400)),
-        DeviceCoordinates(0x1149, 1, Coordinates(6530, 7400, 2400)),
-        # DeviceCoordinates(0x111C, 1, Coordinates(7150, 2600, 1230)),
-        # DeviceCoordinates(0x117B, 1, Coordinates(5650, 0, 2350))
-    ]
+    anchors = constants.ANCHOR_CONFIG[anchor_config]
 
-    # """8L ANCHORS"""
-    # anchors = [
-    #     DeviceCoordinates(0x685C, 1, Coordinates(10306, 8351, 130)),
-    #     DeviceCoordinates(0x6837, 1, Coordinates(9220, 0, 130)),  # Move up higher
-    #     DeviceCoordinates(0x6840, 1, Coordinates(17, 3, 130)),
-    #     DeviceCoordinates(0x6863, 1, Coordinates(2517, 9931, 130)),  # Move up higher
-    #     DeviceCoordinates(0x684B, 1, Coordinates(800, 4500, 130)),
-    #     # DeviceCoordinates(0x1139, 1, Coordinates(9604, 2082, 1000)),
-    #     DeviceCoordinates(0x1101, 1, Coordinates(5080, 3370, 130)),
-    #     DeviceCoordinates(0x1149, 1, Coordinates(6530, 7400, 130)),
-    #     # DeviceCoordinates(0x111C, 1, Coordinates(7150, 2600, 1230)),
-    #     # DeviceCoordinates(0x117B, 1, Coordinates(5650, 0, 2350))
-    # ]
     # positioning algorithm to use, other is PozyxConstants.POSITIONING_ALGORITHM_TRACKING
     algorithm = PozyxConstants.POSITIONING_ALGORITHM_UWB_ONLY
     # positioning dimension. Others are PozyxConstants.DIMENSION_2D, PozyxConstants.DIMENSION_2_5D
@@ -273,5 +256,3 @@ if __name__ == "__main__":
     r.setup()
     while True:
         r.loop()
-
-f.close()
