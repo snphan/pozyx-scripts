@@ -11,6 +11,15 @@ from pathlib import Path
 """
 Plot the data in realtime
 """
+NUM_POINTS = 40 * len(constants.REMOTE_IDS)
+COLORS = [
+    [255, 154, 162],
+    [255, 218, 193],
+    [226, 240, 203],
+    [255, 183, 178],
+    [181, 234, 215],
+    [199, 206, 234],
+]
 
 data_path = Path(__file__).resolve().parents[0].joinpath("data")
 
@@ -59,13 +68,27 @@ lines = {}
 for k in buffer:
     # Plot xy
     lines[k] = {}
-    line, = ax.plot(buffer[k]["x"], buffer[k]["y"], label=k)
+    line,  = ax.plot(
+        buffer[k]["x"],
+        buffer[k]["y"],
+        'o-',
+        markerfacecolor='none',
+        color=(*(np.array(COLORS[remote_id.index(k)])/255).tolist(),
+        0.50),
+        markeredgecolor=[*(np.array(COLORS[remote_id.index(k)])/255).tolist(),1],
+        linewidth=1,
+        markersize=3,
+        markevery=[-1],
+        label=k
+    )
+
     lines[k]["xy"] = line
 
     # Plot z
-    line, = axzpos.plot([], buffer[k]["z"], 'o-', markersize=2, label=k)
+    line, = axzpos.plot([], buffer[k]["z"], 'o-', color=(np.array(COLORS[remote_id.index(k)])/255).tolist(), markersize=1, linewidth=1, label=k)
     lines[k]["z"] = line
 
+print(lines)
 
 
 ax.imshow(img, extent=[0,img.shape[1]*bg_multiplier,0,img.shape[0]*bg_multiplier], cmap='gray', vmin=0, vmax=255)
@@ -86,7 +109,7 @@ def animate(i, buffer):
 
     with open(data_file, 'r') as f:
         all_data = f.readlines()
-        data = all_data[-20:]
+        data = all_data[-NUM_POINTS:]
         for one_data in data:
             splitted = one_data.split(",")
             key = splitted[-1].replace("\n", "")
