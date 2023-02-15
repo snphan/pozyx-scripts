@@ -94,7 +94,9 @@ def animate(i, buffer):
             buffer[key]["z"].append(z)
 
     # Limit z to 3 points
-    buffer[key]["z"] = buffer[key]["z"][-3:]
+    for key in buffer:
+        buffer[key]["z"] = buffer[key]["z"][-3:]
+
     # Update line with new Y values
     for k in lines:
         lines[k]["xy"].set_xdata(buffer[k]["x"])
