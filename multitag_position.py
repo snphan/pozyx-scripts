@@ -11,7 +11,7 @@ from time import sleep
 
 from pypozyx import (POZYX_POS_ALG_UWB_ONLY, POZYX_3D, Coordinates, POZYX_SUCCESS, PozyxConstants, version,
                      DeviceCoordinates, PozyxSerial, get_first_pozyx_serial_port, SingleRegister, DeviceList,
-                     PozyxRegisters, EulerAngles, Acceleration, LinearAcceleration, AngularVelocity)
+                     PozyxRegisters, EulerAngles, Acceleration, LinearAcceleration, AngularVelocity, Pressure)
 from pythonosc.udp_client import SimpleUDPClient
 import time
 
@@ -78,15 +78,18 @@ class ReadyToLocalize(object):
         global acceleration
         global linear_acceleration
         global angular_velocity
+        global pressure
         # Changed acceleration to linear accel (Ignores gravity)
         orientation = EulerAngles()
         acceleration = Acceleration()
         linear_acceleration = LinearAcceleration()
         angular_velocity = AngularVelocity()
+        pressure = Pressure()
         self.pozyx.getEulerAngles_deg(orientation, tag_id)
         self.pozyx.getAcceleration_mg(acceleration, tag_id)
         self.pozyx.getLinearAcceleration_mg(linear_acceleration, tag_id)
         self.pozyx.getAngularVelocity_dps(angular_velocity, tag_id)
+        self.pozyx.getPressure_Pa(pressure, tag_id)
         """print("Orientation: %s, acceleration: %s" % (str(orientation), str(acceleration)))"""
 
     def printPublishPosition(self, position, network_id):
@@ -94,8 +97,8 @@ class ReadyToLocalize(object):
         if network_id is None:
             network_id = 0
         print(
-            "POS ID {}, x(mm): {pos.x} y(mm): {pos.y} z(mm): {pos.z} Orientation: {orient} Accel: {accel} Lin Acceleration: {lin_accel} AngularVelocity: {ang_vel}".format(
-                "0x%0.4x" % network_id, pos=position, orient=str(orientation), accel=str(acceleration), lin_accel=str(linear_acceleration), ang_vel=str(angular_velocity)))
+            "POS ID {}, x(mm): {pos.x} y(mm): {pos.y} z(mm): {pos.z} Orientation: {orient} Accel: {accel} Lin Acceleration: {lin_accel} AngularVelocity: {ang_vel} Pressure: {pressure}".format(
+                "0x%0.4x" % network_id, pos=position, orient=str(orientation), accel=str(acceleration), lin_accel=str(linear_acceleration), ang_vel=str(angular_velocity), pressure=str(pressure)))
         global info
         """Separate orientation and acceleration strings into individual components"""
         orient = str(orientation)
@@ -118,19 +121,20 @@ class ReadyToLocalize(object):
         ang_vel_x = (ang_vel_sp[1])[:-1]
         ang_vel_y = (ang_vel_sp[3])[:-1]
         ang_vel_z = (ang_vel_sp[5])
+        pressure_sp = str(pressure).split()[1]
 
         current_time = time.time()
         info.append([current_time, position.x, position.y, position.z, heading, roll, pitch, accel_x, accel_y, accel_z, lin_accel_x, lin_accel_y, lin_accel_z, 
-                     ang_vel_x, ang_vel_z, ang_vel_y, "0x%0.4x" % network_id])
+                     ang_vel_x, ang_vel_z, ang_vel_y, pressure_sp, "0x%0.4x" % network_id])
         df = pd.DataFrame(info)
-        df.columns = ['Time', 'x', 'y', 'z', 'heading', 'roll', 'pitch', 'accel_x', 'accel_y', 'accel_z', 'lin_accel_x', 'lin_accel_y', 'lin_accel_z', 'angvel_x', 'angvel_y', 'angvel_z', 'tag_id']
+        df.columns = ['Time', 'x', 'y', 'z', 'heading', 'roll', 'pitch', 'accel_x', 'accel_y', 'accel_z', 'lin_accel_x', 'lin_accel_y', 'lin_accel_z', 'angvel_x', 'angvel_y', 'angvel_z', 'pressure', 'tag_id']
         df.to_csv(output_file_path, mode='a', index=False, header=None)
         info = []  # empty info after saving
-        if self.osc_udp_client is not None:
-            self.osc_udp_client.send_message(
-                "/position",
-                [network_id, int(position.x), int(position.y), int(position.z), float(heading), float(roll),
-                 float(pitch), float(accel_x), float(accel_y), float(accel_z), float(ang_vel_x), float(ang_vel_y), float(ang_vel_z)])
+        # if self.osc_udp_client is not None:
+        #     self.osc_udp_client.send_message(
+        #         "/position",
+        #         [network_id, int(position.x), int(position.y), int(position.z), float(heading), float(roll),
+        #          float(pitch), float(accel_x), float(accel_y), float(accel_z), float(ang_vel_x), float(ang_vel_y), float(ang_vel_z)])
 
     def printPublishErrorCode(self, operation, network_id):
         """Prints the Pozyx's error and possibly sends it as a OSC packet"""
