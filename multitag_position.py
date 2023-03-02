@@ -94,8 +94,8 @@ class ReadyToLocalize(object):
         if network_id is None:
             network_id = 0
         print(
-            "POS ID {}, x(mm): {pos.x} y(mm): {pos.y} z(mm): {pos.z} Orientation: {orient} Acceleration: {accel} AngularVelocity: {ang_vel}".format(
-                "0x%0.4x" % network_id, pos=position, orient=str(orientation), accel=str(linear_acceleration), ang_vel=str(angular_velocity)))
+            "POS ID {}, x(mm): {pos.x} y(mm): {pos.y} z(mm): {pos.z} Orientation: {orient} Accel: {accel} Lin Acceleration: {lin_accel} AngularVelocity: {ang_vel}".format(
+                "0x%0.4x" % network_id, pos=position, orient=str(orientation), accel=str(acceleration), lin_accel=str(linear_acceleration), ang_vel=str(angular_velocity)))
         global info
         """Separate orientation and acceleration strings into individual components"""
         orient = str(orientation)
@@ -103,11 +103,16 @@ class ReadyToLocalize(object):
         heading = (orient_sp[1])[:-1]
         roll = (orient_sp[3])[:-1]
         pitch = (orient_sp[5])
-        accel = str(linear_acceleration)
+        accel = str(acceleration)
         accel_sp = accel.split()
         accel_x = (accel_sp[1])[:-1]
         accel_y = (accel_sp[3])[:-1]
         accel_z = accel_sp[5]
+        lin_accel = str(linear_acceleration)
+        lin_accel_sp = lin_accel.split()
+        lin_accel_x = (lin_accel_sp[1])[:-1]
+        lin_accel_y = (lin_accel_sp[3])[:-1]
+        lin_accel_z = lin_accel_sp[5]
         ang_vel = str(angular_velocity)
         ang_vel_sp = ang_vel.split()
         ang_vel_x = (ang_vel_sp[1])[:-1]
@@ -115,10 +120,10 @@ class ReadyToLocalize(object):
         ang_vel_z = (ang_vel_sp[5])
 
         current_time = time.time()
-        info.append([current_time, position.x, position.y, position.z, heading, roll, pitch, accel_x, accel_y, accel_z,
+        info.append([current_time, position.x, position.y, position.z, heading, roll, pitch, accel_x, accel_y, accel_z, lin_accel_x, lin_accel_y, lin_accel_z, 
                      ang_vel_x, ang_vel_z, ang_vel_y, "0x%0.4x" % network_id])
         df = pd.DataFrame(info)
-        df.columns = ['Time', 'x', 'y', 'z', 'heading', 'roll', 'pitch', 'accel_x', 'accel_y', 'accel_z', 'angvel_x', 'angvel_y', 'angvel_z', 'tag_id']
+        df.columns = ['Time', 'x', 'y', 'z', 'heading', 'roll', 'pitch', 'accel_x', 'accel_y', 'accel_z', 'lin_accel_x', 'lin_accel_y', 'lin_accel_z', 'angvel_x', 'angvel_y', 'angvel_z', 'tag_id']
         df.to_csv(output_file_path, mode='a', index=False, header=None)
         info = []  # empty info after saving
         if self.osc_udp_client is not None:
