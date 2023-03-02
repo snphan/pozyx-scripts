@@ -8,6 +8,18 @@ import sys
 from config import constants
 from pathlib import Path
 
+"""
+Plot the data in realtime
+"""
+NUM_POINTS = 40 * len(constants.REMOTE_IDS)
+COLORS = [
+    [255, 154, 162],
+    [255, 218, 193],
+    [226, 240, 203],
+    [255, 183, 178],
+    [181, 234, 215],
+    [199, 206, 234],
+]
 
 data_path = Path(__file__).resolve().parents[0].joinpath("data")
 
@@ -33,24 +45,51 @@ mydata = deque([1,2,3,4,5])
 img = Image.open(bg_path).convert("L")
 img = np.asarray(img)
 
-remote_id = constants.REMOTE_IDS  # remote device network ID
+remote_id = ["0x%0.4x" % id for id in constants.REMOTE_IDS]  # remote device network ID
 buffer = {}
 
-for id in remote_id:
-    tag_id =  "0x%0.4x" % id
+for tag_id in remote_id:
     buffer[tag_id] = {}
+    buffer[tag_id]["timestamp"] = []
     buffer[tag_id]["x"] = []
     buffer[tag_id]["y"] = []
+    buffer[tag_id]["z"] = []
 
 # Create figure for plotting
 fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
+(axzpos, ax) = fig.subplots(2,1, height_ratios=[1, 3])
+axzpos.set_ylim(-100, 5000)
+axzpos.set_title("Z Position")
+axzpos.set_ylabel("z (mm)")
+
 
 # Create a blank line. We will update the line in animate
 lines = {}
 for k in buffer:
-    line, = ax.plot(buffer[k]["x"], buffer[k]["y"], label=k)
-    lines[k] = line
+    # Plot xy
+    lines[k] = {}
+    line,  = ax.plot(
+        buffer[k]["x"],
+        buffer[k]["y"],
+        'o-',
+        markerfacecolor='none',
+        color=(*(np.array(COLORS[remote_id.index(k)])/255).tolist(),
+        0.50),
+        markeredgecolor=[*(np.array(COLORS[remote_id.index(k)])/255).tolist(),1],
+        linewidth=1,
+        markersize=3,
+        markevery=[-1],
+        label=k
+    )
+
+    lines[k]["xy"] = line
+
+    # Plot z
+    line, = axzpos.plot([], buffer[k]["z"], 'o-', color=(np.array(COLORS[remote_id.index(k)])/255).tolist(), markersize=1, linewidth=1, label=k)
+    lines[k]["z"] = line
+
+print(lines)
+
 
 ax.imshow(img, extent=[0,img.shape[1]*bg_multiplier,0,img.shape[0]*bg_multiplier], cmap='gray', vmin=0, vmax=255)
 # Add labels
@@ -63,26 +102,41 @@ def animate(i, buffer):
 
     # Clear the buffer
     for k in buffer:
+        buffer[k]["timestamp"] = []
         buffer[k]["x"] = []
         buffer[k]["y"] = []
+        buffer[k]["z"] = []
 
     with open(data_file, 'r') as f:
         all_data = f.readlines()
-        data = all_data[-20:]
+        data = all_data[-NUM_POINTS:]
         for one_data in data:
             splitted = one_data.split(",")
-            k = splitted[-1].replace("\n", "") 
+            key = splitted[-1].replace("\n", "")
+            timestamp = float(splitted[0]) 
             x = float(splitted[1])
             y = float(splitted[2])
-            buffer[k]["x"].append(x)
-            buffer[k]["y"].append(y)
+            z = float(splitted[3])
+
+            buffer[key]["timestamp"].append(timestamp)
+            buffer[key]["x"].append(x)
+            buffer[key]["y"].append(y)
+            buffer[key]["z"].append(z)
 
     # Update line with new Y values
+    max_time = 0
+    min_time = float("inf")
     for k in lines:
-        lines[k].set_xdata(buffer[k]["x"])
-        lines[k].set_ydata(buffer[k]["y"])
+        lines[k]["xy"].set_xdata(buffer[k]["x"])
+        lines[k]["xy"].set_ydata(buffer[k]["y"])
+        lines[k]["z"].set_ydata(buffer[k]["z"])
+        lines[k]["z"].set_xdata(buffer[k]["timestamp"])
+        if buffer[k]["timestamp"][-1] > max_time: max_time = buffer[k]["timestamp"][-1] + 1
+        if buffer[k]["timestamp"][0] < min_time: min_time = buffer[k]["timestamp"][0] - 1
 
-    return lines.values()
+    axzpos.set_xlim(min_time, max_time)
+
+    return [lines[tagid][data_type] for tagid in lines for data_type in lines[tagid]]
 
 # Set up plot to call animate() function periodically
 ani = animation.FuncAnimation(fig,
