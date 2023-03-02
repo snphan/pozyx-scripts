@@ -17,7 +17,7 @@ Plot the data in realtime
 ####################################################################################################
 NUM_POINTS = 40 * len(constants.REMOTE_IDS)
 # DATA_TYPES = ['POS', 'ACC', 'GYRO', 'LINACC', 'ORIENT'] # For orientation x = heading, y = roll, z = pitch
-DATA_TYPES = ['POS', 'ACC', 'GYRO'] # For orientation x = heading, y = roll, z = pitch
+DATA_TYPES = ['POS', 'ACC', 'GYRO', 'PRESSURE'] # For orientation x = heading, y = roll, z = pitch
 COLORS = [
     [255, 154, 162],
     [255, 218, 193],
@@ -72,6 +72,7 @@ axzpos = fig.add_subplot(gs[0, :])
 ax = fig.add_subplot(gs[1:, :2])
 ax_accel = fig.add_subplot(gs[1, 2:])
 ax_gyro = fig.add_subplot(gs[2, 2:])
+ax_pressure = fig.add_subplot(gs[3, 2:])
 # (axzpos, ax) = fig.subplots(2,1, height_ratios=[1, 3])
 axzpos.set_ylim(-100, 5000)
 axzpos.set_title("Z Position")
@@ -86,6 +87,9 @@ ax_accel.set_ylim(-2000, 2000)
 
 ax_gyro.set_title("GYRO of Tag (dps)")
 ax_gyro.set_ylim(-2000, 2000)
+
+ax_pressure.set_title("Pressure of Tag (Pa)")
+ax_pressure.set_ylim(91300, 91500)
 
 # Create a blank line. We will update the line in animate
 lines = {}
@@ -124,6 +128,13 @@ for k in buffer:
         line, = ax_gyro.plot([], buffer[k]['GYRO'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"GYRO_{axis}")
         lines[k]['GYRO'][axis] = line
 
+    # Plot PRESSURE
+    lines[k]['PRESSURE'] = {}
+    for ind, axis in enumerate(["x"]):
+        line, = ax_pressure.plot([], buffer[k]['PRESSURE'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"PRESSURE_{axis}")
+        lines[k]['PRESSURE'][axis] = line
+
+
 
 print(lines)
 
@@ -157,6 +168,7 @@ def animate(i, buffer):
             gyro_x = float(splitted[13])
             gyro_y = float(splitted[14])
             gyro_z = float(splitted[15])
+            pressure = float(splitted[-2])
 
             buffer[key]['POS']["timestamp"].append(timestamp)
             buffer[key]['POS']["x"].append(pos_x)
@@ -172,6 +184,9 @@ def animate(i, buffer):
             buffer[key]['GYRO']["x"].append(gyro_x)
             buffer[key]['GYRO']["y"].append(gyro_y)
             buffer[key]['GYRO']["z"].append(gyro_z)
+
+            buffer[key]['PRESSURE']["timestamp"].append(timestamp)
+            buffer[key]['PRESSURE']["x"].append(pressure)
 
 
     # Update line with new Y values
@@ -197,12 +212,17 @@ def animate(i, buffer):
         lines[k]['GYRO']["z"].set_ydata(buffer[k]['GYRO']["z"])
         lines[k]['GYRO']["z"].set_xdata(buffer[k]['GYRO']["timestamp"])
 
+
+        lines[k]['PRESSURE']["x"].set_ydata(buffer[k]['PRESSURE']["x"])
+        lines[k]['PRESSURE']["x"].set_xdata(buffer[k]['PRESSURE']["timestamp"])
+
         # Dynamically scale the z-pos graph with a min and max time 
         if buffer[k]['POS']["timestamp"][-1] > max_time: max_time = buffer[k]['POS']["timestamp"][-1] + 0.2
         if buffer[k]['POS']["timestamp"][0] < min_time: min_time = buffer[k]['POS']["timestamp"][0] - 0.2
 
     ax_accel.set_xlim(min_time, max_time)
     ax_gyro.set_xlim(min_time, max_time)
+    ax_pressure.set_xlim(min_time, max_time)
     axzpos.set_xlim(min_time, max_time)
 
     lines_array = []
