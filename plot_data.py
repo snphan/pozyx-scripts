@@ -17,7 +17,7 @@ Plot the data in realtime
 ####################################################################################################
 NUM_POINTS = 40 * len(constants.REMOTE_IDS)
 # DATA_TYPES = ['POS', 'ACC', 'GYRO', 'LINACC', 'ORIENT'] # For orientation x = heading, y = roll, z = pitch
-DATA_TYPES = ['POS', 'ACC'] # For orientation x = heading, y = roll, z = pitch
+DATA_TYPES = ['POS', 'ACC', 'GYRO'] # For orientation x = heading, y = roll, z = pitch
 COLORS = [
     [255, 154, 162],
     [255, 218, 193],
@@ -71,6 +71,7 @@ gs.update(wspace=0.3,hspace=0.3)
 axzpos = fig.add_subplot(gs[0, :])
 ax = fig.add_subplot(gs[1:, :2])
 ax_accel = fig.add_subplot(gs[1, 2:])
+ax_gyro = fig.add_subplot(gs[2, 2:])
 # (axzpos, ax) = fig.subplots(2,1, height_ratios=[1, 3])
 axzpos.set_ylim(-100, 5000)
 axzpos.set_title("Z Position")
@@ -80,8 +81,11 @@ ax.set_title('Real Time Positioning')
 ax.set_xlabel('X (mm)')
 ax.set_ylabel('y (mm)')
 
-ax_accel.set_title("ACC of Tag")
+ax_accel.set_title("ACC of Tag (mg)")
 ax_accel.set_ylim(-2000, 2000)
+
+ax_gyro.set_title("GYRO of Tag (dps)")
+ax_gyro.set_ylim(-2000, 2000)
 
 # Create a blank line. We will update the line in animate
 lines = {}
@@ -114,6 +118,12 @@ for k in buffer:
         line, = ax_accel.plot([], buffer[k]['ACC'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"ACC_{axis}")
         lines[k]['ACC'][axis] = line
 
+    # Plot GYRO_XYZ
+    lines[k]['GYRO'] = {}
+    for ind, axis in enumerate(["x", "y", "z"]):
+        line, = ax_gyro.plot([], buffer[k]['GYRO'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"GYRO_{axis}")
+        lines[k]['GYRO'][axis] = line
+
 
 print(lines)
 
@@ -144,6 +154,9 @@ def animate(i, buffer):
             acc_x = float(splitted[7])
             acc_y = float(splitted[8])
             acc_z = float(splitted[9])
+            gyro_x = float(splitted[13])
+            gyro_y = float(splitted[14])
+            gyro_z = float(splitted[15])
 
             buffer[key]['POS']["timestamp"].append(timestamp)
             buffer[key]['POS']["x"].append(pos_x)
@@ -155,6 +168,12 @@ def animate(i, buffer):
             buffer[key]['ACC']["y"].append(acc_y)
             buffer[key]['ACC']["z"].append(acc_z)
 
+            buffer[key]['GYRO']["timestamp"].append(timestamp)
+            buffer[key]['GYRO']["x"].append(gyro_x)
+            buffer[key]['GYRO']["y"].append(gyro_y)
+            buffer[key]['GYRO']["z"].append(gyro_z)
+
+
     # Update line with new Y values
     max_time = 0                # To dynamically update the xlim of the z-graph
     min_time = float("inf")     # To dynamically update the xlim of the z-graph
@@ -163,6 +182,7 @@ def animate(i, buffer):
         lines[k]['POS']["xy"].set_ydata(buffer[k]['POS']["y"])
         lines[k]['POS']["z"].set_ydata(buffer[k]['POS']["z"])
         lines[k]['POS']["z"].set_xdata(buffer[k]['POS']["timestamp"])
+
         lines[k]['ACC']["x"].set_ydata(buffer[k]['ACC']["x"])
         lines[k]['ACC']["x"].set_xdata(buffer[k]['ACC']["timestamp"])
         lines[k]['ACC']["y"].set_ydata(buffer[k]['ACC']["y"])
@@ -170,11 +190,19 @@ def animate(i, buffer):
         lines[k]['ACC']["z"].set_ydata(buffer[k]['ACC']["z"])
         lines[k]['ACC']["z"].set_xdata(buffer[k]['ACC']["timestamp"])
 
+        lines[k]['GYRO']["x"].set_ydata(buffer[k]['GYRO']["x"])
+        lines[k]['GYRO']["x"].set_xdata(buffer[k]['GYRO']["timestamp"])
+        lines[k]['GYRO']["y"].set_ydata(buffer[k]['GYRO']["y"])
+        lines[k]['GYRO']["y"].set_xdata(buffer[k]['GYRO']["timestamp"])
+        lines[k]['GYRO']["z"].set_ydata(buffer[k]['GYRO']["z"])
+        lines[k]['GYRO']["z"].set_xdata(buffer[k]['GYRO']["timestamp"])
+
         # Dynamically scale the z-pos graph with a min and max time 
         if buffer[k]['POS']["timestamp"][-1] > max_time: max_time = buffer[k]['POS']["timestamp"][-1] + 0.2
         if buffer[k]['POS']["timestamp"][0] < min_time: min_time = buffer[k]['POS']["timestamp"][0] - 0.2
 
     ax_accel.set_xlim(min_time, max_time)
+    ax_gyro.set_xlim(min_time, max_time)
     axzpos.set_xlim(min_time, max_time)
 
     lines_array = []
