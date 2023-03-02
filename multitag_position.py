@@ -125,7 +125,7 @@ class ReadyToLocalize(object):
 
         current_time = time.time()
         info.append([current_time, position.x, position.y, position.z, heading, roll, pitch, accel_x, accel_y, accel_z, lin_accel_x, lin_accel_y, lin_accel_z, 
-                     ang_vel_x, ang_vel_z, ang_vel_y, pressure_sp, "0x%0.4x" % network_id])
+                     ang_vel_x, ang_vel_y, ang_vel_z, pressure_sp, "0x%0.4x" % network_id])
         df = pd.DataFrame(info)
         df.columns = ['Time', 'x', 'y', 'z', 'heading', 'roll', 'pitch', 'accel_x', 'accel_y', 'accel_z', 'lin_accel_x', 'lin_accel_y', 'lin_accel_z', 'angvel_x', 'angvel_y', 'angvel_z', 'pressure', 'tag_id']
         df.to_csv(output_file_path, mode='a', index=False, header=None)
