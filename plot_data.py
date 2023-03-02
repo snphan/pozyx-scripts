@@ -8,6 +8,8 @@ import time
 import sys
 from config import constants
 from pathlib import Path
+import pandas as pd
+
 
 """
 Plot the data in realtime
@@ -73,7 +75,7 @@ ax_accel = fig.add_subplot(gs[1, 2:])
 ax_gyro = fig.add_subplot(gs[2, 2:])
 ax_pressure = fig.add_subplot(gs[3, 2:])
 # (axzpos, ax) = fig.subplots(2,1, height_ratios=[1, 3])
-axzpos.set_ylim(-100, 5000)
+axzpos.set_ylim(-1000, 2500)
 axzpos.set_title("Z Position")
 axzpos.set_ylabel("z (mm)")
 
@@ -88,7 +90,7 @@ ax_gyro.set_title("GYRO of Tag (dps)")
 ax_gyro.set_ylim(-2000, 2000)
 
 ax_pressure.set_title("Pressure of Tag (Pa)")
-ax_pressure.set_ylim(91395, 91420)
+ax_pressure.set_ylim(91370, 91410)
 
 # Create a blank line. We will update the line in animate
 lines = {}
@@ -203,11 +205,15 @@ def animate(i, buffer):
     min_time = float("inf")     # To dynamically update the xlim of the z-graph
     for k in lines:
 
-        lines[k]['POS']["xy"].set_xdata(buffer[k]['POS']["x"])
-        lines[k]['POS']["xy"].set_ydata(buffer[k]['POS']["y"])
+        x_pos = pd.Series(buffer[k]['POS']["x"]).rolling(20).mean().to_numpy()
+        y_pos = pd.Series(buffer[k]['POS']["y"]).rolling(20).mean().to_numpy()
+        # lines[k]['POS']["xy"].set_xdata(buffer[k]['POS']["x"])
+        # lines[k]['POS']["xy"].set_ydata(buffer[k]['POS']["y"])
+        lines[k]['POS']["xy"].set_xdata(x_pos)
+        lines[k]['POS']["xy"].set_ydata(y_pos)
         lines[k]['POS']["z"].set_ydata(buffer[k]['POS']["z"])
         lines[k]['POS']["z"].set_xdata(buffer[k]['POS']["timestamp"])
-        lines[k]['POS']['direction'].set_data(x=buffer[k]['POS']["x"][-1], y=buffer[k]['POS']["y"][-1], dx=500*np.sin(buffer[k]['ORIENT']['x'] * np.pi / 180), dy=500*np.cos(buffer[k]['ORIENT']['x'] * np.pi / 180))
+        lines[k]['POS']['direction'].set_data(x=x_pos[-1], y=y_pos[-1], dx=500*np.sin(buffer[k]['ORIENT']['x'] * np.pi / 180), dy=500*np.cos(buffer[k]['ORIENT']['x'] * np.pi / 180))
 
 
         lines[k]['ACC']["x"].set_ydata(buffer[k]['ACC']["x"])
