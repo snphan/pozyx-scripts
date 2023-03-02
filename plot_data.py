@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.gridspec import GridSpec
 import numpy as np
 from collections import deque
 from PIL import Image
@@ -65,11 +66,19 @@ for tag_id in remote_id:
 
 # Create figure for plotting
 fig = plt.figure()
-(axzpos, ax) = fig.subplots(2,1, height_ratios=[1, 3])
+gs = GridSpec(4, 4, figure=fig)
+gs.update(wspace=0.3,hspace=0.3)
+axzpos = fig.add_subplot(gs[0, :])
+ax = fig.add_subplot(gs[1:, :2])
+ax_accel = fig.add_subplot(gs[1, 2:])
+# (axzpos, ax) = fig.subplots(2,1, height_ratios=[1, 3])
 axzpos.set_ylim(-100, 5000)
 axzpos.set_title("Z Position")
 axzpos.set_ylabel("z (mm)")
 
+ax.set_title('Real Time Positioning')
+ax.set_xlabel('X (mm)')
+ax.set_ylabel('y (mm)')
 
 # Create a blank line. We will update the line in animate
 lines = {}
@@ -99,10 +108,6 @@ print(lines)
 
 
 ax.imshow(img, extent=[0,img.shape[1]*bg_multiplier,0,img.shape[0]*bg_multiplier], cmap='gray', vmin=0, vmax=255)
-# Add labels
-plt.title('Real Time Positioning')
-plt.xlabel('X (mm)')
-plt.ylabel('y (mm)')
 
 # This function is called periodically from FuncAnimation
 def animate(i, buffer):
