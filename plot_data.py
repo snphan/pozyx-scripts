@@ -16,8 +16,7 @@ Plot the data in realtime
 #                                       CONFIGURATION
 ####################################################################################################
 NUM_POINTS = 40 * len(constants.REMOTE_IDS)
-# DATA_TYPES = ['POS', 'ACC', 'GYRO', 'LINACC', 'ORIENT'] # For orientation x = heading, y = roll, z = pitch
-DATA_TYPES = ['POS', 'ACC', 'GYRO', 'PRESSURE'] # For orientation x = heading, y = roll, z = pitch
+DATA_TYPES = ['POS', 'ACC', 'GYRO', 'PRESSURE', 'ORIENT'] # For orientation x = heading, y = roll, z = pitch
 COLORS = [
     [255, 154, 162],
     [255, 218, 193],
@@ -89,7 +88,7 @@ ax_gyro.set_title("GYRO of Tag (dps)")
 ax_gyro.set_ylim(-2000, 2000)
 
 ax_pressure.set_title("Pressure of Tag (Pa)")
-ax_pressure.set_ylim(91300, 91500)
+ax_pressure.set_ylim(91395, 91420)
 
 # Create a blank line. We will update the line in animate
 lines = {}
@@ -112,6 +111,8 @@ for k in buffer:
         label=k
     )
     lines[k]['POS']["xy"] = line
+    lines[k]['POS']['direction'] = ax.arrow(0, 0, 1, 1, width=3, alpha=0.5, linewidth=5)
+
     # Plot POS_Z
     line, = axzpos.plot([], buffer[k]['POS']["z"], 'o-', color=(np.array(COLORS[remote_id.index(k)])/255).tolist(), markersize=1, linewidth=1, label=k)
     lines[k]['POS']["z"] = line
@@ -169,6 +170,14 @@ def animate(i, buffer):
             gyro_y = float(splitted[14])
             gyro_z = float(splitted[15])
             pressure = float(splitted[-2])
+            heading = float(splitted[4])
+            roll = float(splitted[5])
+            pitch = float(splitted[6])
+
+            buffer[key]['ORIENT']["timestamp"] = timestamp
+            buffer[key]['ORIENT']["x"] = heading
+            buffer[key]['ORIENT']["y"] = roll
+            buffer[key]['ORIENT']["z"] = pitch
 
             buffer[key]['POS']["timestamp"].append(timestamp)
             buffer[key]['POS']["x"].append(pos_x)
@@ -193,10 +202,13 @@ def animate(i, buffer):
     max_time = 0                # To dynamically update the xlim of the z-graph
     min_time = float("inf")     # To dynamically update the xlim of the z-graph
     for k in lines:
+
         lines[k]['POS']["xy"].set_xdata(buffer[k]['POS']["x"])
         lines[k]['POS']["xy"].set_ydata(buffer[k]['POS']["y"])
         lines[k]['POS']["z"].set_ydata(buffer[k]['POS']["z"])
         lines[k]['POS']["z"].set_xdata(buffer[k]['POS']["timestamp"])
+        lines[k]['POS']['direction'].set_data(x=buffer[k]['POS']["x"][-1], y=buffer[k]['POS']["y"][-1], dx=500*np.sin(buffer[k]['ORIENT']['x'] * np.pi / 180), dy=500*np.cos(buffer[k]['ORIENT']['x'] * np.pi / 180))
+
 
         lines[k]['ACC']["x"].set_ydata(buffer[k]['ACC']["x"])
         lines[k]['ACC']["x"].set_xdata(buffer[k]['ACC']["timestamp"])
