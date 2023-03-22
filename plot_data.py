@@ -9,7 +9,17 @@ import sys
 from config import constants
 from pathlib import Path
 import pandas as pd
+import joblib
+import matplotlib.path as mpltPath
+import json
+import utils
+from sklearn.preprocessing import OneHotEncoder
 
+def what_location(x, y, regions):
+    for k, v in regions.items():
+        path = mpltPath.Path(v)
+        if path.contains_point([x,y]): return k
+    return "undefined"
 
 """
 Plot the data in realtime
@@ -17,8 +27,15 @@ Plot the data in realtime
 ####################################################################################################
 #                                       CONFIGURATION
 ####################################################################################################
-NUM_POINTS = 40 * len(constants.REMOTE_IDS)
-DATA_TYPES = ['POS', 'ACC', 'GYRO', 'PRESSURE', 'ORIENT'] # For orientation x = heading, y = roll, z = pitch
+SAMPLE_RATE = 16 # Hz
+SECONDS_SHOW = 2 # s
+MAV_WINDOW = 20
+NUM_POINTS = SAMPLE_RATE * SECONDS_SHOW * len(constants.REMOTE_IDS) + MAV_WINDOW
+REGIONS = json.load(open('2023-03-14 12:15:31.794149.json'))
+CLF = joblib.load(Path().joinpath('models', 'MAKESANDWICH', 'making_sandwich.joblib'))
+LOCATION_ENCODER = joblib.load(Path().joinpath('models', 'MAKESANDWICH', 'location_encoder.joblib'))
+LABEL_ENCODER = joblib.load(Path().joinpath('models', 'MAKESANDWICH', 'label_encoder.joblib'))
+DATA_TYPES = ['POS', 'LINACC', 'ACC', 'GYRO', 'PRESSURE', 'ORIENT'] # For orientation x = heading, y = roll, z = pitch
 COLORS = [
     [255, 154, 162],
     [255, 218, 193],
@@ -137,10 +154,7 @@ for k in buffer:
         line, = ax_pressure.plot([], buffer[k]['PRESSURE'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"PRESSURE_{axis}")
         lines[k]['PRESSURE'][axis] = line
 
-
-
 print(lines)
-
 
 ax.imshow(img, extent=[0,img.shape[1]*bg_multiplier,0,img.shape[0]*bg_multiplier], cmap='gray', vmin=0, vmax=255)
 
@@ -158,47 +172,106 @@ def animate(i, buffer):
     with open(data_file, 'r') as f:
         all_data = f.readlines()
         data = all_data[-NUM_POINTS:]
+
         for one_data in data:
             splitted = one_data.split(",")
-            key = splitted[-1].replace("\n", "")
+            tag_id = splitted[-1].replace("\n", "") # tagId
             timestamp = float(splitted[0]) 
             pos_x = float(splitted[1])
             pos_y = float(splitted[2])
             pos_z = float(splitted[3])
+            heading = float(splitted[4])
+            roll = float(splitted[5])
+            pitch = float(splitted[6])
             acc_x = float(splitted[7])
             acc_y = float(splitted[8])
             acc_z = float(splitted[9])
+            lin_acc_x = float(splitted[10])
+            lin_acc_y = float(splitted[11])
+            lin_acc_z = float(splitted[12])
             gyro_x = float(splitted[13])
             gyro_y = float(splitted[14])
             gyro_z = float(splitted[15])
             pressure = float(splitted[-2])
-            heading = float(splitted[4])
-            roll = float(splitted[5])
-            pitch = float(splitted[6])
 
-            buffer[key]['ORIENT']["timestamp"] = timestamp
-            buffer[key]['ORIENT']["x"] = heading
-            buffer[key]['ORIENT']["y"] = roll
-            buffer[key]['ORIENT']["z"] = pitch
+            buffer[tag_id]['ORIENT']["timestamp"] = timestamp
+            buffer[tag_id]['ORIENT']["x"].append(heading)
+            buffer[tag_id]['ORIENT']["y"].append(roll)
+            buffer[tag_id]['ORIENT']["z"].append(pitch)
 
-            buffer[key]['POS']["timestamp"].append(timestamp)
-            buffer[key]['POS']["x"].append(pos_x)
-            buffer[key]['POS']["y"].append(pos_y)
-            buffer[key]['POS']["z"].append(pos_z)
+            buffer[tag_id]['POS']["timestamp"].append(timestamp)
+            buffer[tag_id]['POS']["x"].append(pos_x)
+            buffer[tag_id]['POS']["y"].append(pos_y)
+            buffer[tag_id]['POS']["z"].append(pos_z)
 
-            buffer[key]['ACC']["timestamp"].append(timestamp)
-            buffer[key]['ACC']["x"].append(acc_x)
-            buffer[key]['ACC']["y"].append(acc_y)
-            buffer[key]['ACC']["z"].append(acc_z)
+            buffer[tag_id]['LINACC']["timestamp"].append(timestamp)
+            buffer[tag_id]['LINACC']["x"].append(lin_acc_x)
+            buffer[tag_id]['LINACC']["y"].append(lin_acc_y)
+            buffer[tag_id]['LINACC']["z"].append(lin_acc_z)
 
-            buffer[key]['GYRO']["timestamp"].append(timestamp)
-            buffer[key]['GYRO']["x"].append(gyro_x)
-            buffer[key]['GYRO']["y"].append(gyro_y)
-            buffer[key]['GYRO']["z"].append(gyro_z)
+            buffer[tag_id]['ACC']["timestamp"].append(timestamp)
+            buffer[tag_id]['ACC']["x"].append(acc_x)
+            buffer[tag_id]['ACC']["y"].append(acc_y)
+            buffer[tag_id]['ACC']["z"].append(acc_z)
 
-            buffer[key]['PRESSURE']["timestamp"].append(timestamp)
-            buffer[key]['PRESSURE']["x"].append(pressure)
+            buffer[tag_id]['GYRO']["timestamp"].append(timestamp)
+            buffer[tag_id]['GYRO']["x"].append(gyro_x)
+            buffer[tag_id]['GYRO']["y"].append(gyro_y)
+            buffer[tag_id]['GYRO']["z"].append(gyro_z)
 
+            buffer[tag_id]['PRESSURE']["timestamp"].append(timestamp)
+            buffer[tag_id]['PRESSURE']["x"].append(pressure)
+
+    ##################################################
+    # ML PREPROCESSING
+
+    for tag_id in buffer:
+        data = []
+        for item in ['POS', 'ORIENT', 'ACC', 'LINACC', 'GYRO']:
+            for axis in ['x', 'y', 'z']:
+                data.append(buffer[tag_id][item][axis])
+        data.append(buffer[tag_id]['PRESSURE']['x'])
+        data = np.array(data)
+
+        # Cleaning
+        df = pd.DataFrame(data.T, columns=['POS_X', 'POS_Y', 'POS_Z', 'Heading', 'Roll', 'Pitch', 'ACC_X', 'ACC_Y', 'ACC_Z', 'GYRO_X', 'GYRO_Y', 'GYRO_Z', 'LINACC_X', 'LINACC_Y', 'LINACC_Z', 'Pressure'])
+        cleaned_df = (df
+                .loc[:, ['POS_X', 'POS_Y', 'POS_Z', 'ACC_X', 'ACC_Y', 'ACC_Z', 'LINACC_X', 'LINACC_Y', 'LINACC_Z', 'GYRO_X', 'GYRO_Y', 'GYRO_Z', 'Heading', 'Roll', 'Pitch', 'Pressure']]
+                .pipe(utils.handle_spikes, ['POS_Z', 'POS_Y'], [1500.0, 800.0]) 
+                .pipe(utils.MAV_cols, ['POS_X', 'POS_Y', 'POS_Z'], MAV_WINDOW)
+                .dropna().reset_index(drop=True)
+            )
+
+        # Feature Extraction
+        mean = cleaned_df.mean()
+        mean.index = ['MEAN_' + ind for ind in mean.index]
+
+        median = cleaned_df.median()
+        median.index = ['MEDIAN_' + ind for ind in median.index]
+
+        std = cleaned_df.std()
+        std.index = ['STD_' + ind for ind in std.index]
+
+        mode = cleaned_df.copy().pipe(utils.round_cols, ['POS_X', 'POS_Y', 'POS_Z'], 50).mode().iloc[0, :] # 50 mm = 5 cm, mode may output 2 rows
+        mode.index = ['MODE_' + ind for ind in mode.index]
+
+        max_value = cleaned_df.max()
+        max_value.index = ['MAX_' + ind for ind in max_value.index]
+
+        min_value = cleaned_df.min()
+        min_value.index = ['MIN_' + ind for ind in min_value.index]
+
+        mode_location = pd.Series(cleaned_df.copy().pipe(utils.determine_location, REGIONS).loc[:, 'Location'].mode()[0], index=["LOCATION"])
+
+        feature_vector = pd.concat([mean, median, std, mode, max_value, min_value, mode_location]).to_frame().T
+
+        feature_vector = (feature_vector.pipe(utils.one_hot_encode_col, 'LOCATION', LOCATION_ENCODER))
+
+        y_pred_label = LABEL_ENCODER.classes_[CLF.predict(feature_vector.values)[0]]
+
+        print(y_pred_label)
+
+    ##################################################
 
     # Update line with new Y values
     max_time = 0                # To dynamically update the xlim of the z-graph
@@ -213,7 +286,7 @@ def animate(i, buffer):
         lines[k]['POS']["xy"].set_ydata(y_pos)
         lines[k]['POS']["z"].set_ydata(buffer[k]['POS']["z"])
         lines[k]['POS']["z"].set_xdata(buffer[k]['POS']["timestamp"])
-        lines[k]['POS']['direction'].set_data(x=x_pos[-1], y=y_pos[-1], dx=500*np.sin(buffer[k]['ORIENT']['x'] * np.pi / 180), dy=500*np.cos(buffer[k]['ORIENT']['x'] * np.pi / 180))
+        lines[k]['POS']['direction'].set_data(x=x_pos[-1], y=y_pos[-1], dx=500*np.sin(buffer[k]['ORIENT']['x'][-1] * np.pi / 180), dy=500*np.cos(buffer[k]['ORIENT']['x'][-1] * np.pi / 180))
 
 
         lines[k]['ACC']["x"].set_ydata(buffer[k]['ACC']["x"])
