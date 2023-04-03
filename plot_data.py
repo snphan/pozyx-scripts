@@ -32,9 +32,10 @@ SECONDS_SHOW = 2 # s
 MAV_WINDOW = 20
 NUM_POINTS = SAMPLE_RATE * SECONDS_SHOW * len(constants.REMOTE_IDS) + MAV_WINDOW
 REGIONS = json.load(open('2023-03-14 12:15:31.794149.json'))
-CLF = joblib.load(Path().joinpath('models', 'MAKESANDWICH', 'making_sandwich.joblib'))
-LOCATION_ENCODER = joblib.load(Path().joinpath('models', 'MAKESANDWICH', 'location_encoder.joblib'))
-LABEL_ENCODER = joblib.load(Path().joinpath('models', 'MAKESANDWICH', 'label_encoder.joblib'))
+MODEL_FOLDER = 'TESTING'
+CLF = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'output_model.joblib'))
+LOCATION_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'location_encoder.joblib'))
+LABEL_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'label_encoder.joblib'))
 DATA_TYPES = ['POS', 'LINACC', 'ACC', 'GYRO', 'PRESSURE', 'ORIENT'] # For orientation x = heading, y = roll, z = pitch
 COLORS = [
     [255, 154, 162],
@@ -81,6 +82,7 @@ for tag_id in remote_id:
         buffer[tag_id][data_type]["x"] = []
         buffer[tag_id][data_type]["y"] = []
         buffer[tag_id][data_type]["z"] = []
+
 
 # Create figure for plotting
 fig = plt.figure()
@@ -158,9 +160,15 @@ print(lines)
 
 ax.imshow(img, extent=[0,img.shape[1]*bg_multiplier,0,img.shape[0]*bg_multiplier], cmap='gray', vmin=0, vmax=255)
 
+
+currentlocation = ''
+currentactivity = ''
+location_start_time = activity_start_time = time.time()
+
 # This function is called periodically from FuncAnimation
 def animate(i, buffer):
-
+    global currentlocation, currentactivity, location_start_time, activity_start_time
+    # Can add start/edn time to csv to remove global variables
     # Clear the buffer
     for k in buffer:
         for data_type in DATA_TYPES:
@@ -224,7 +232,7 @@ def animate(i, buffer):
 
     ##################################################
     # ML PREPROCESSING
-
+    
     for tag_id in buffer:
         data = []
         for item in ['POS', 'ORIENT', 'ACC', 'LINACC', 'GYRO']:
@@ -269,7 +277,47 @@ def animate(i, buffer):
 
         y_pred_label = LABEL_ENCODER.classes_[CLF.predict(feature_vector.values)[0]]
 
-        print(y_pred_label)
+        
+        #print(y_pred_label)
+        #print(f"Location : {mode_location.values[0]} Time : {timestamp}")
+        #print(f"Location : {currentlocation} Time : {start_time}")
+
+        
+        if mode_location.values[0] != currentlocation : 
+            location_final_time = timestamp
+            location_duration = location_final_time - location_start_time
+            #print(f"Time spent in {currentlocation} : {location_duration}")
+            location_start_time = location_final_time
+            currentlocation = mode_location.values[0]
+            df = pd.DataFrame([[currentlocation, location_duration]], columns=['Location', 'Duration'])
+            filename_1 = 'RoomAnalytics.csv'
+            with open(filename_1, 'a') as f:
+                df.to_csv(f, mode='a', header = f.tell()==0, index = False)
+            # df.to_csv('RoomAnalytics.csv', mode='a', index=False, header = None)
+        
+        if y_pred_label != currentactivity : 
+            activity_final_time = timestamp 
+            activity_duration = activity_final_time - activity_start_time
+            #print(f"Time spent doing {currentactivity} : {activity_duration}")
+            activity_start_time = activity_final_time
+            currentactivity = y_pred_label
+            df = pd.DataFrame([[currentactivity, activity_duration]], columns=['Activity', 'Duration'])
+            filename_2 = 'ActivityAnalytics.csv'
+            with open(filename_2, 'a') as f:
+                df.to_csv(f, mode='a', header = f.tell()==0, index = False)
+            # df.to_csv('RoomAnalytics.csv', mode='a', index=False, header = None)
+
+        print(f"Patient is in {currentlocation} doing '{currentactivity}' activity")
+       ## Add walking/Stationary after "Patient is"
+        def IgnoreOutliers (keyword) : 
+
+            
+            return 
+        
+        
+
+
+    
 
     ##################################################
 
@@ -323,6 +371,7 @@ def animate(i, buffer):
                 lines_array.append(lines[tagid][data_type][plot_config])
 
     return lines_array
+
 
 # Set up plot to call animate() function periodically
 ani = animation.FuncAnimation(fig,
