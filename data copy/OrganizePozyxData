@@ -1,0 +1,23 @@
+#! /usr/bin/python3 
+
+from pathlib import Path
+
+"""
+If experiments have not been put into the correct folders
+put experiments into the correct Folders. Assumes that file names is in the
+format: {experiment_type}_{options}_{trialnum}.csv.
+
+Make this executable by typing 
+
+    sudo chmod +x OrganizePozyxData
+
+You can put this into your /bin and execute from anywhere.
+"""
+
+curr_dir = Path.cwd()
+
+for path in Path.cwd().glob('*.csv'):
+    experiment_type = path.name.split('_')[0]
+    experiment_dir = curr_dir.joinpath(experiment_type)
+    experiment_dir.mkdir(parents=True, exist_ok=True)
+    path.rename(curr_dir.joinpath(experiment_dir, path.name))
