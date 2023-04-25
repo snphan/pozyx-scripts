@@ -53,28 +53,6 @@ bg_options = {
     "GR": {"path": "Glenrose Research First Floor Cropped.png", "multiplier": 14.75}
 }
 ####################################################################################################
-def analytics(): 
-    room_data = pd.read_csv('RoomAnalytics.csv')
-    activity_data = pd.read_csv('ActivityAnalytics.csv')
-    adl_list = {'ADL': ['cooking', 'hygiene', 'cleaning', 'changing', 'toileting', 'leisure', 'eating', 'sleep'] }
-
-    #Cycles through activities and assigns corresponding duration
-    unique_activities = pd.unique(activity_data.iloc[:,0])
-    activities_duration = {act: 0 for act in unique_activities} 
-
-    # **** Need to assign activities to adl category ****
-    for act in activities_duration:
-        rows = activity_data[activity_data['Activity'].str.contains(act)]
-        total_dur = rows['Duration'].sum()/60 # Converts time duration to minutes
-        activities_duration[act] = total_dur 
-
-    # print(activities_duration)
-    # print(type(pd.unique(activity_data.iloc[:,0])))
-
-    names = list(activities_duration.keys()) #Obtains activity labels
-    values = list(activities_duration.values()) #Obtains activity durations
-    return
-##############################################################################################
 data_path = Path(__file__).resolve().parents[0].joinpath("data")
 
 if len(sys.argv) < 2:
@@ -114,12 +92,10 @@ fig = plt.figure()
 gs = GridSpec(8, 8, figure=fig)
 gs.update(wspace=0.3,hspace=0.3)
 axzpos = fig.add_subplot(gs[:2, :2])
-ax = fig.add_subplot(gs[3:, :4])
+ax = fig.add_subplot(gs[3:, :8])
 ax_accel = fig.add_subplot(gs[:2, 3:5])
 ax_gyro = fig.add_subplot(gs[:2, 6:8])
-ax_activity = fig.add_subplot(gs[3:, 4:])
 
-# ax_activity.bar(range(len(activities_duration)), values)
 
 
 
@@ -138,22 +114,11 @@ ax_accel.set_ylim(-2000, 2000)
 ax_gyro.set_title("GYRO of Tag (dps)")
 ax_gyro.set_ylim(-2000, 2000)
 
-ax_activity.set_title("Patient Activity")
-ax_activity.set_ylabel('Duration (Mins)')
-ax_activity.set_xlabel('Activities')
-
-# plt.xticks(range(len(activities_duration)), names, rotation='vertical')
-# ax_activity.tick_params(axis='both', which='major', labelsize = 8)
-# ax_activity.set(xticks=[names], yticks=[])
-
 
 # Create a blank line. We will update the line in animate
-# activities_duration = {}
-# values = {}
-# names = {}
 lines = {}
 for k in buffer:
-    print(buffer)
+    # print(buffer)
     # Plot POS_XY Overlay on Image
     lines[k] = {}
     lines[k]['POS'] = {}
@@ -177,12 +142,6 @@ for k in buffer:
     line, = axzpos.plot([], buffer[k]['POS']["z"], 'o-', color=(np.array(COLORS[remote_id.index(k)])/255).tolist(), markersize=1, linewidth=1, label=k)
     lines[k]['POS']["z"] = line
 
-    #Plot analytics
-    ax_activity.bar(range(len(activities_duration)), values)
-    plt.xticks(range(len(activities_duration)), names, rotation='vertical')
-    ax_activity.tick_params(axis='both', which='major', labelsize = 8)
-
-
     # Plot ACC_XYZ
     lines[k]['ACC'] = {}
     for ind, axis in enumerate(["x", "y", "z"]):
@@ -201,7 +160,7 @@ for k in buffer:
     #     line, = ax_pressure.plot([], buffer[k]['PRESSURE'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"PRESSURE_{axis}")
     #     lines[k]['PRESSURE'][axis] = line
 
-print(lines)
+# print(lines)
 
 ax.imshow(img, extent=[0,img.shape[1]*bg_multiplier,0,img.shape[0]*bg_multiplier], cmap='gray', vmin=0, vmax=255)
 
@@ -211,7 +170,7 @@ currentactivity = ''
 location_start_time = activity_start_time = time.time()
 
 # This function is called periodically from FuncAnimation
-def animate(i, buffer, names, values, activities_duration):
+def animate(i, buffer,):
     global currentlocation, currentactivity, location_start_time, activity_start_time
     # Can add start/edn time to csv to remove global variables
     # Clear the buffer
@@ -374,24 +333,6 @@ def animate(i, buffer, names, values, activities_duration):
         
         print(f"Patient is in {currentlocation} doing '{currentactivity}' activity. Peaks : {accel_peak.values}")
 
-        # room_data = pd.read_csv('RoomAnalytics.csv')
-        activity_data = pd.read_csv('ActivityAnalytics.csv')
-        # adl_list = {'ADL': ['cooking', 'hygiene', 'cleaning', 'changing', 'toileting', 'leisure', 'eating', 'sleep'] }
-        unique_activities = pd.unique(activity_data.iloc[:,0]) #Cycles through activities and assigns corresponding duration
-        activities_duration = {act: 0 for act in unique_activities} 
-
-        # **** Need to assign activities to adl category ****
-        for act in activities_duration:
-            rows = activity_data[activity_data['Activity'].str.contains(act)]
-            total_dur = rows['Duration'].sum()/60 # Converts time duration to minutes
-            activities_duration[act] = total_dur 
-
-        names = list(activities_duration.keys()) #Obtains activity labels
-        values = list(activities_duration.values()) #Obtains activity durations
-      
-        # print(names) # names and values are updating real time, why is plot not updating?
-
-        #BAR PLOT WONT Update in real time    
 
     ##################################################
 
@@ -450,7 +391,7 @@ def animate(i, buffer, names, values, activities_duration):
 # Set up plot to call animate() function periodically
 ani = animation.FuncAnimation(fig,
     animate,
-    fargs=(buffer,names,values,activities_duration),
+    fargs=(buffer, ),
     interval=1,
     blit=True)
 
