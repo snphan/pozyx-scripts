@@ -212,15 +212,17 @@ class ReadyToLocalize(object):
 
 if __name__ == "__main__":
 
-    if len(sys.argv) < 2:
-        csv_name = input("Write a name: ")
-    else:
-        csv_name = sys.argv[1]
+    # if len(sys.argv) < 2:
+    #     csv_name = input("Write a name: ")
+    # else:
+    #     csv_name = sys.argv[1]
+    csv_name = 'Restart_Test'
 
-    anchor_config = input(f"Select an Anchor Config ({('/').join(list(constants.ANCHOR_CONFIG.keys()))}): ")
-    if anchor_config not in constants.ANCHOR_CONFIG:
-        print("Invalid Anchor Config")
-        quit()
+    # anchor_config = input(f"Select an Anchor Config ({('/').join(list(constants.ANCHOR_CONFIG.keys()))}): ")
+    # if anchor_config not in constants.ANCHOR_CONFIG:
+    #     print("Invalid Anchor Config")
+    #     quit()
+    anchor_config = 'ILS_9H'
 
     data_path = Path(__file__).resolve().parents[0].joinpath("data")
     data_path.mkdir(exist_ok=True)
@@ -263,5 +265,8 @@ if __name__ == "__main__":
     pozyx = PozyxSerial(serial_port)
     r = ReadyToLocalize(pozyx, osc_udp_client, anchors, algorithm, dimension, height, remote_id)
     r.setup()
+
+    raise Exception('Error')
+
     while True:
         r.loop()

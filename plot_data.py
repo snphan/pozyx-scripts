@@ -14,12 +14,15 @@ import matplotlib.path as mpltPath
 import json
 import utils
 from sklearn.preprocessing import OneHotEncoder
+from scipy.signal import find_peaks
 
 def what_location(x, y, regions):
     for k, v in regions.items():
         path = mpltPath.Path(v)
         if path.contains_point([x,y]): return k
     return "undefined"
+
+
 
 """
 Plot the data in realtime
@@ -28,7 +31,7 @@ Plot the data in realtime
 #                                       CONFIGURATION
 ####################################################################################################
 SAMPLE_RATE = 16 # Hz
-SECONDS_SHOW = 2 # s
+SECONDS_SHOW = 3 # s
 MAV_WINDOW = 20
 NUM_POINTS = SAMPLE_RATE * SECONDS_SHOW * len(constants.REMOTE_IDS) + MAV_WINDOW
 REGIONS = json.load(open('2023-03-14 12:15:31.794149.json'))
@@ -50,8 +53,28 @@ bg_options = {
     "GR": {"path": "Glenrose Research First Floor Cropped.png", "multiplier": 14.75}
 }
 ####################################################################################################
+def analytics(): 
+    room_data = pd.read_csv('RoomAnalytics.csv')
+    activity_data = pd.read_csv('ActivityAnalytics.csv')
+    adl_list = {'ADL': ['cooking', 'hygiene', 'cleaning', 'changing', 'toileting', 'leisure', 'eating', 'sleep'] }
 
+    #Cycles through activities and assigns corresponding duration
+    unique_activities = pd.unique(activity_data.iloc[:,0])
+    activities_duration = {act: 0 for act in unique_activities} 
 
+    # **** Need to assign activities to adl category ****
+    for act in activities_duration:
+        rows = activity_data[activity_data['Activity'].str.contains(act)]
+        total_dur = rows['Duration'].sum()/60 # Converts time duration to minutes
+        activities_duration[act] = total_dur 
+
+    # print(activities_duration)
+    # print(type(pd.unique(activity_data.iloc[:,0])))
+
+    names = list(activities_duration.keys()) #Obtains activity labels
+    values = list(activities_duration.values()) #Obtains activity durations
+    return
+##############################################################################################
 data_path = Path(__file__).resolve().parents[0].joinpath("data")
 
 if len(sys.argv) < 2:
@@ -73,7 +96,9 @@ img = np.asarray(img)
 
 remote_id = ["0x%0.4x" % id for id in constants.REMOTE_IDS]  # remote device network ID
 buffer = {}
-
+names = {}
+values = {}
+activities_duration = {}
 for tag_id in remote_id:
     buffer[tag_id] = {}
     for data_type in DATA_TYPES:
@@ -86,13 +111,18 @@ for tag_id in remote_id:
 
 # Create figure for plotting
 fig = plt.figure()
-gs = GridSpec(4, 4, figure=fig)
+gs = GridSpec(8, 8, figure=fig)
 gs.update(wspace=0.3,hspace=0.3)
-axzpos = fig.add_subplot(gs[0, :])
-ax = fig.add_subplot(gs[1:, :2])
-ax_accel = fig.add_subplot(gs[1, 2:])
-ax_gyro = fig.add_subplot(gs[2, 2:])
-ax_pressure = fig.add_subplot(gs[3, 2:])
+axzpos = fig.add_subplot(gs[:2, :2])
+ax = fig.add_subplot(gs[3:, :4])
+ax_accel = fig.add_subplot(gs[:2, 3:5])
+ax_gyro = fig.add_subplot(gs[:2, 6:8])
+ax_activity = fig.add_subplot(gs[3:, 4:])
+
+# ax_activity.bar(range(len(activities_duration)), values)
+
+
+
 # (axzpos, ax) = fig.subplots(2,1, height_ratios=[1, 3])
 axzpos.set_ylim(-1000, 2500)
 axzpos.set_title("Z Position")
@@ -108,10 +138,19 @@ ax_accel.set_ylim(-2000, 2000)
 ax_gyro.set_title("GYRO of Tag (dps)")
 ax_gyro.set_ylim(-2000, 2000)
 
-ax_pressure.set_title("Pressure of Tag (Pa)")
-ax_pressure.set_ylim(91370, 91410)
+ax_activity.set_title("Patient Activity")
+ax_activity.set_ylabel('Duration (Mins)')
+ax_activity.set_xlabel('Activities')
+
+# plt.xticks(range(len(activities_duration)), names, rotation='vertical')
+# ax_activity.tick_params(axis='both', which='major', labelsize = 8)
+# ax_activity.set(xticks=[names], yticks=[])
+
 
 # Create a blank line. We will update the line in animate
+# activities_duration = {}
+# values = {}
+# names = {}
 lines = {}
 for k in buffer:
     print(buffer)
@@ -138,6 +177,12 @@ for k in buffer:
     line, = axzpos.plot([], buffer[k]['POS']["z"], 'o-', color=(np.array(COLORS[remote_id.index(k)])/255).tolist(), markersize=1, linewidth=1, label=k)
     lines[k]['POS']["z"] = line
 
+    #Plot analytics
+    ax_activity.bar(range(len(activities_duration)), values)
+    plt.xticks(range(len(activities_duration)), names, rotation='vertical')
+    ax_activity.tick_params(axis='both', which='major', labelsize = 8)
+
+
     # Plot ACC_XYZ
     lines[k]['ACC'] = {}
     for ind, axis in enumerate(["x", "y", "z"]):
@@ -150,11 +195,11 @@ for k in buffer:
         line, = ax_gyro.plot([], buffer[k]['GYRO'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"GYRO_{axis}")
         lines[k]['GYRO'][axis] = line
 
-    # Plot PRESSURE
-    lines[k]['PRESSURE'] = {}
-    for ind, axis in enumerate(["x"]):
-        line, = ax_pressure.plot([], buffer[k]['PRESSURE'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"PRESSURE_{axis}")
-        lines[k]['PRESSURE'][axis] = line
+    # # Plot PRESSURE
+    # lines[k]['PRESSURE'] = {}
+    # for ind, axis in enumerate(["x"]):
+    #     line, = ax_pressure.plot([], buffer[k]['PRESSURE'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"PRESSURE_{axis}")
+    #     lines[k]['PRESSURE'][axis] = line
 
 print(lines)
 
@@ -166,10 +211,11 @@ currentactivity = ''
 location_start_time = activity_start_time = time.time()
 
 # This function is called periodically from FuncAnimation
-def animate(i, buffer):
+def animate(i, buffer, names, values, activities_duration):
     global currentlocation, currentactivity, location_start_time, activity_start_time
     # Can add start/edn time to csv to remove global variables
     # Clear the buffer
+    
     for k in buffer:
         for data_type in DATA_TYPES:
             buffer[k][data_type]["timestamp"] = []
@@ -247,6 +293,7 @@ def animate(i, buffer):
                 .loc[:, ['POS_X', 'POS_Y', 'POS_Z', 'ACC_X', 'ACC_Y', 'ACC_Z', 'LINACC_X', 'LINACC_Y', 'LINACC_Z', 'GYRO_X', 'GYRO_Y', 'GYRO_Z', 'Heading', 'Roll', 'Pitch', 'Pressure']]
                 .pipe(utils.handle_spikes, ['POS_Z', 'POS_Y'], [1500.0, 800.0]) 
                 .pipe(utils.MAV_cols, ['POS_X', 'POS_Y', 'POS_Z'], MAV_WINDOW)
+                .pipe(utils.drop_columns_that_contain, 'Pressure')
                 .dropna().reset_index(drop=True)
             )
 
@@ -269,20 +316,37 @@ def animate(i, buffer):
         min_value = cleaned_df.min()
         min_value.index = ['MIN_' + ind for ind in min_value.index]
 
+        xpeaks = find_peaks(abs(cleaned_df.iloc[:,3] - cleaned_df.iloc[:,3].mean()), height = 500)
+        ypeaks = find_peaks(abs(cleaned_df.iloc[:,4] - cleaned_df.iloc[:,4].mean()), height = 500)
+        zpeaks = find_peaks(abs(cleaned_df.iloc[:,5] - cleaned_df.iloc[:,5].mean()), height = 500)
+        peaks = [len(xpeaks[1]['peak_heights']), len(ypeaks[1]['peak_heights']), len(zpeaks[1]['peak_heights'])]
+        
+        column_name = ['Peaks_Acc_X','Peaks_Acc_Y','Peaks_Acc_Z']
+
         mode_location = pd.Series(cleaned_df.copy().pipe(utils.determine_location, REGIONS).loc[:, 'Location'].mode()[0], index=["LOCATION"])
 
-        feature_vector = pd.concat([mean, median, std, mode, max_value, min_value, mode_location]).to_frame().T
+        accel_peak = pd.Series(peaks, index = column_name)
 
+        feature_vector = pd.concat([mean, median, std, mode, max_value, min_value, mode_location, accel_peak]).to_frame().T
+
+        # Feature selection
+        feature_list = ['LOCATION', 'Peaks_Acc_X', 'Peaks_Acc_Y', 'Peaks_Acc_Z', ]
+        feature_list += feature_vector.columns[feature_vector.columns.str.contains('POS')].tolist()
+        feature_list += feature_vector.columns[feature_vector.columns.str.contains('_ACC')].tolist()
+        # print(feature_list)
+        # print(feature_vector)
+        # quit()
+        feature_vector = feature_vector.loc[:, feature_list ]   
+        
         feature_vector = (feature_vector.pipe(utils.one_hot_encode_col, 'LOCATION', LOCATION_ENCODER))
 
         y_pred_label = LABEL_ENCODER.classes_[CLF.predict(feature_vector.values)[0]]
 
-        
         #print(y_pred_label)
         #print(f"Location : {mode_location.values[0]} Time : {timestamp}")
         #print(f"Location : {currentlocation} Time : {start_time}")
 
-        
+
         if mode_location.values[0] != currentlocation : 
             location_final_time = timestamp
             location_duration = location_final_time - location_start_time
@@ -307,17 +371,27 @@ def animate(i, buffer):
                 df.to_csv(f, mode='a', header = f.tell()==0, index = False)
             # df.to_csv('RoomAnalytics.csv', mode='a', index=False, header = None)
 
-        print(f"Patient is in {currentlocation} doing '{currentactivity}' activity")
-       ## Add walking/Stationary after "Patient is"
-        def IgnoreOutliers (keyword) : 
-
-            
-            return 
         
-        
+        print(f"Patient is in {currentlocation} doing '{currentactivity}' activity. Peaks : {accel_peak.values}")
 
+        # room_data = pd.read_csv('RoomAnalytics.csv')
+        activity_data = pd.read_csv('ActivityAnalytics.csv')
+        # adl_list = {'ADL': ['cooking', 'hygiene', 'cleaning', 'changing', 'toileting', 'leisure', 'eating', 'sleep'] }
+        unique_activities = pd.unique(activity_data.iloc[:,0]) #Cycles through activities and assigns corresponding duration
+        activities_duration = {act: 0 for act in unique_activities} 
 
-    
+        # **** Need to assign activities to adl category ****
+        for act in activities_duration:
+            rows = activity_data[activity_data['Activity'].str.contains(act)]
+            total_dur = rows['Duration'].sum()/60 # Converts time duration to minutes
+            activities_duration[act] = total_dur 
+
+        names = list(activities_duration.keys()) #Obtains activity labels
+        values = list(activities_duration.values()) #Obtains activity durations
+      
+        # print(names) # names and values are updating real time, why is plot not updating?
+
+        #BAR PLOT WONT Update in real time    
 
     ##################################################
 
@@ -352,8 +426,8 @@ def animate(i, buffer):
         lines[k]['GYRO']["z"].set_xdata(buffer[k]['GYRO']["timestamp"])
 
 
-        lines[k]['PRESSURE']["x"].set_ydata(buffer[k]['PRESSURE']["x"])
-        lines[k]['PRESSURE']["x"].set_xdata(buffer[k]['PRESSURE']["timestamp"])
+        # lines[k]['PRESSURE']["x"].set_ydata(buffer[k]['PRESSURE']["x"])
+        # lines[k]['PRESSURE']["x"].set_xdata(buffer[k]['PRESSURE']["timestamp"])
 
         # Dynamically scale the z-pos graph with a min and max time 
         if buffer[k]['POS']["timestamp"][-1] > max_time: max_time = buffer[k]['POS']["timestamp"][-1] + 0.2
@@ -361,7 +435,7 @@ def animate(i, buffer):
 
     ax_accel.set_xlim(min_time, max_time)
     ax_gyro.set_xlim(min_time, max_time)
-    ax_pressure.set_xlim(min_time, max_time)
+    # ax_pressure.set_xlim(min_time, max_time)
     axzpos.set_xlim(min_time, max_time)
 
     lines_array = []
@@ -376,7 +450,7 @@ def animate(i, buffer):
 # Set up plot to call animate() function periodically
 ani = animation.FuncAnimation(fig,
     animate,
-    fargs=(buffer,),
+    fargs=(buffer,names,values,activities_duration),
     interval=1,
     blit=True)
 

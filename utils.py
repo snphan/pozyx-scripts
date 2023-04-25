@@ -120,7 +120,10 @@ def round_cols(df: pd.DataFrame, columns: list[str], base=1):
         rounded = (df.loc[:, col] / base).round() * base 
         df.loc[:, col] = rounded
     return df
-    
+
+def drop_columns_that_contain(df, query) -> pd.DataFrame:
+    col_to_drop = df.loc[:, df.columns.str.contains(query)]
+    return df.drop(col_to_drop.columns.values, axis=1)
 
 def determine_location(df, regions): # Note that df must contain POS_X and POS_Y
     df["Location"] = df.apply(lambda row: what_location(row['POS_X'], row['POS_Y'], regions), axis=1)
