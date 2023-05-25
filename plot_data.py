@@ -12,16 +12,17 @@ import pandas as pd
 import joblib
 import matplotlib.path as mpltPath
 import json
+import math
 import utils
 from sklearn.preprocessing import OneHotEncoder
 from scipy.signal import find_peaks
+
 
 def what_location(x, y, regions):
     for k, v in regions.items():
         path = mpltPath.Path(v)
         if path.contains_point([x,y]): return k
     return "undefined"
-
 
 
 """
@@ -35,7 +36,7 @@ SECONDS_SHOW = 3 # s
 MAV_WINDOW = 20
 NUM_POINTS = SAMPLE_RATE * SECONDS_SHOW * len(constants.REMOTE_IDS) + MAV_WINDOW
 REGIONS = json.load(open('2023-03-14 12:15:31.794149.json'))
-MODEL_FOLDER = 'TESTING'
+MODEL_FOLDER = 'SLEEPSTATIONARYMODEL'
 CLF = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'output_model.joblib'))
 LOCATION_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'location_encoder.joblib'))
 LABEL_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'label_encoder.joblib'))
@@ -96,9 +97,6 @@ ax = fig.add_subplot(gs[3:, :8])
 ax_accel = fig.add_subplot(gs[:2, 3:5])
 ax_gyro = fig.add_subplot(gs[:2, 6:8])
 
-
-
-
 # (axzpos, ax) = fig.subplots(2,1, height_ratios=[1, 3])
 axzpos.set_ylim(-1000, 2500)
 axzpos.set_title("Z Position")
@@ -113,7 +111,6 @@ ax_accel.set_ylim(-2000, 2000)
 
 ax_gyro.set_title("GYRO of Tag (dps)")
 ax_gyro.set_ylim(-2000, 2000)
-
 
 # Create a blank line. We will update the line in animate
 lines = {}
@@ -145,22 +142,15 @@ for k in buffer:
     # Plot ACC_XYZ
     lines[k]['ACC'] = {}
     for ind, axis in enumerate(["x", "y", "z"]):
-        line, = ax_accel.plot([], buffer[k]['ACC'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"ACC_{axis}")
+        line, = ax_accel.plot([], buffer[k]['ACC'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1) #label=f"ACC_{['X','Y','Z']}" Legend wont display?
         lines[k]['ACC'][axis] = line
 
     # Plot GYRO_XYZ
     lines[k]['GYRO'] = {}
     for ind, axis in enumerate(["x", "y", "z"]):
-        line, = ax_gyro.plot([], buffer[k]['GYRO'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"GYRO_{axis}")
+        line, = ax_gyro.plot([], buffer[k]['GYRO'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1) #label=f"GYRO_{axis}" Legend wont display?
         lines[k]['GYRO'][axis] = line
 
-    # # Plot PRESSURE
-    # lines[k]['PRESSURE'] = {}
-    # for ind, axis in enumerate(["x"]):
-    #     line, = ax_pressure.plot([], buffer[k]['PRESSURE'][axis], 'o-', color=(np.array(COLORS[ind])/255).tolist(), markersize=1, linewidth=1, label=f"PRESSURE_{axis}")
-    #     lines[k]['PRESSURE'][axis] = line
-
-# print(lines)
 
 ax.imshow(img, extent=[0,img.shape[1]*bg_multiplier,0,img.shape[0]*bg_multiplier], cmap='gray', vmin=0, vmax=255)
 
@@ -206,6 +196,12 @@ def animate(i, buffer,):
             gyro_y = float(splitted[14])
             gyro_z = float(splitted[15])
             pressure = float(splitted[-2])
+
+            #Filtering Extraneous Z positions
+            if pos_z > 2000 : 
+                pos_z = 2000
+            elif pos_z < 0:
+                pos_z = 0 
 
             buffer[tag_id]['ORIENT']["timestamp"] = timestamp
             buffer[tag_id]['ORIENT']["x"].append(heading)
@@ -301,15 +297,11 @@ def animate(i, buffer,):
 
         y_pred_label = LABEL_ENCODER.classes_[CLF.predict(feature_vector.values)[0]]
 
-        #print(y_pred_label)
-        #print(f"Location : {mode_location.values[0]} Time : {timestamp}")
-        #print(f"Location : {currentlocation} Time : {start_time}")
 
-
+        #Creating CSVs for Analytics 
         if mode_location.values[0] != currentlocation : 
-            location_final_time = timestamp
+            location_final_time  = timestamp
             location_duration = location_final_time - location_start_time
-            #print(f"Time spent in {currentlocation} : {location_duration}")
             location_start_time = location_final_time
             currentlocation = mode_location.values[0]
             df = pd.DataFrame([[currentlocation, location_duration]], columns=['Location', 'Duration'])
@@ -321,7 +313,6 @@ def animate(i, buffer,):
         if y_pred_label != currentactivity : 
             activity_final_time = timestamp 
             activity_duration = activity_final_time - activity_start_time
-            #print(f"Time spent doing {currentactivity} : {activity_duration}")
             activity_start_time = activity_final_time
             currentactivity = y_pred_label
             df = pd.DataFrame([[currentactivity, activity_duration]], columns=['Activity', 'Duration'])
@@ -330,10 +321,40 @@ def animate(i, buffer,):
                 df.to_csv(f, mode='a', header = f.tell()==0, index = False)
             # df.to_csv('RoomAnalytics.csv', mode='a', index=False, header = None)
 
+        df_activity = pd.DataFrame([[timestamp, currentactivity]], columns = ['Time', 'Activity'])
+        filename_3 = 'RawActivityData.csv'
+        with open(filename_3, 'a') as f:
+             df_activity.to_csv(f, mode='a', header = f.tell()==0, index = False)
+
+
+        # Buffer holds 68 positional points 
+        # distance_points_x = np.divide(buffer[tag_id]['POS']["x"][0:40],1000)
+        # distance_points_y = np.divide(buffer[tag_id]['POS']["y"][0:40],1000)
+        # distance_points_x = pd.Series(buffer[tag_i]['POS']["x"]).rolling(20).mean().to_numpy()
+        # # Add moving average to these distance_points ".rolling( , )" to a df?  
+        # average_points_x = distance_points_x.rolling(window = 10).mean()      
+        # # print(distance)
+        
+
+
+        #Try appending to list?
+        # activity_buffer = pd.Series(currentactivity).append
+        # activity_buffer = df_activity.loc[:,'Activity']
+        # # .mode()
+        # print(activity_buffer)
+        # i = 0 
+        # if i < 20 : 
+        #     activity_buffer[i] = [currentactivity]
+        #     i = i+1
+        # else :
+        #     i = 0
+        # activity_buffer = [currentactivity]
+        # print(activity_buffer)
         
         print(f"Patient is in {currentlocation} doing '{currentactivity}' activity. Peaks : {accel_peak.values}")
 
-
+    # activity_buffer = df_activity.loc[:,'Activity']
+    # print(activity_buffer)
     ##################################################
 
     # Update line with new Y values
@@ -366,9 +387,21 @@ def animate(i, buffer,):
         lines[k]['GYRO']["z"].set_ydata(buffer[k]['GYRO']["z"])
         lines[k]['GYRO']["z"].set_xdata(buffer[k]['GYRO']["timestamp"])
 
-
-        # lines[k]['PRESSURE']["x"].set_ydata(buffer[k]['PRESSURE']["x"])
-        # lines[k]['PRESSURE']["x"].set_xdata(buffer[k]['PRESSURE']["timestamp"])
+        #Walking vs Stationary Algorithm
+        distance_buffer_x = x_pos[48:]#length of 68
+        distance_buffer_y = y_pos[48:]
+        distance_x = float(abs(distance_buffer_x[19] - distance_buffer_x[0]))
+        distance_y = float(abs(distance_buffer_y[19] - distance_buffer_y[0]))
+        distance = math.sqrt((distance_x)**2+(distance_y)**2)
+        distance_threshold = 600 #In mm
+        if distance > distance_threshold : 
+            # walk_start = time.time()
+            activity = 'Walking'
+        else : 
+            # walk_end = time.time()
+            activity = 'Stationary'
+            # walking_duration += (walk_end - walk_start)
+        # print(activity)
 
         # Dynamically scale the z-pos graph with a min and max time 
         if buffer[k]['POS']["timestamp"][-1] > max_time: max_time = buffer[k]['POS']["timestamp"][-1] + 0.2
@@ -376,9 +409,7 @@ def animate(i, buffer,):
 
     ax_accel.set_xlim(min_time, max_time)
     ax_gyro.set_xlim(min_time, max_time)
-    # ax_pressure.set_xlim(min_time, max_time)
     axzpos.set_xlim(min_time, max_time)
-
     lines_array = []
     for tagid in lines:
         for data_type in lines[tag_id]:

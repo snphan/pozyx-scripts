@@ -8,19 +8,16 @@ of the Pozyx device both locally and remotely. Follow the steps to correctly set
 parameters and upload this sketch. Watch the coordinates change as you move your device around!
 """
 from time import sleep
-
 from pypozyx import (POZYX_POS_ALG_UWB_ONLY, POZYX_3D, Coordinates, POZYX_SUCCESS, PozyxConstants, version,
                      DeviceCoordinates, PozyxSerial, get_first_pozyx_serial_port, SingleRegister, DeviceList,
                      PozyxRegisters, EulerAngles, Acceleration, LinearAcceleration, AngularVelocity, Pressure)
 from pythonosc.udp_client import SimpleUDPClient
 import time
-
 import csv
 import pandas as pd
 import sys
 from pathlib import Path
 from config import constants
-
 
 info = []
 csv_name = ""
