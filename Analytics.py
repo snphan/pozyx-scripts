@@ -42,33 +42,41 @@ values_room = list(room_duration.values())
 
 num_activities = range(len(activities_duration))
 
+#Create multiplot figure for room, activity, walking analytics
 fig = plt.figure()
 gs = GridSpec(9, 9, figure=fig)
 gs.update(wspace=0.3,hspace=0.3)
 activity = fig.add_subplot(gs[:9,:4])
 room = fig.add_subplot(gs[:9,5:9])
 
+#Activity Plot
 activity.set_title("User Activity")
 activity.set_ylabel("Duration (Mins)")
 activity.set_xlabel("Activities")
-
-room.set_title("Room Activity")
-room.set_ylabel("Duration (Mins)")
-room.set_xlabel("Rooms")
-
 activity.bar(names_act,values_act)
 activity.set_xticks(range(len(activities_duration)), names_act, rotation = 'vertical')
 activity.tick_params(axis='x', which='major', labelsize = 8)
 activity.tick_params(axis='y', which='major', labelsize = 10)
 
+#Room Plot
+room.set_title("Room Activity")
+room.set_ylabel("Duration (Mins)")
+room.set_xlabel("Rooms")
 room.bar(names_room, values_room)
 room.set_xticks(range(len(room_duration)), names_room, rotation = 'vertical')
 room.tick_params(axis='x', which='major', labelsize = 8)
 room.tick_params(axis='y', which='major', labelsize = 10)
 print(names_room)
 
-# bar_activity = plt.bar(names_act, values_act)
-# bar_room = plt.bar(names_room, values_room)
+#Walking/Stationary Plot
+# data_file = (input("type the name of data file: ") + ".csv")
+# with open(data_file, 'r') as f:
+#     all_data = f.readlines()
+#     data = all_data[-NUM_POINTS:]
+
+
+#####################################################
+
 plt.show()
 
 # def animate(frame):
@@ -80,15 +88,5 @@ plt.show()
 # ani = animation.FuncAnimation(fig, animate, frames = len(values_act))
 # plt.show()
 
-
-
 # openfreezer = activity_data[activity_data['Activity'].str.contains('FREEZER')]
 # time_freezer = openfreezer['Duration'].sum()
-
-# ADL datasets
-# cooking  = pd.concat([openfridge, openfreezer, mince, getplate, slicetomato])
-# time_cooking = cooking['Duration'].sum()
-# print(cooking.loc[7,:])
-# print(time_cooking)
-# activity_data.plot(kind = 'hist', x = 'Activity', y = 'Duration')
-# plt.show()
