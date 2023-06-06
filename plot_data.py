@@ -36,7 +36,7 @@ SECONDS_SHOW = 3 # s
 MAV_WINDOW = 20
 NUM_POINTS = SAMPLE_RATE * SECONDS_SHOW * len(constants.REMOTE_IDS) + MAV_WINDOW
 REGIONS = json.load(open('2023-03-14 12:15:31.794149.json'))
-MODEL_FOLDER = 'SLEEPSTATIONARYMODEL'
+MODEL_FOLDER = '06_06_Model'
 CLF = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'output_model.joblib'))
 LOCATION_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'location_encoder.joblib'))
 LABEL_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'label_encoder.joblib'))
@@ -290,14 +290,14 @@ def animate(i, buffer,):
         feature_list += feature_vector.columns[feature_vector.columns.str.contains('_ACC')].tolist()
         # print(feature_list)
         # print(feature_vector)
-        # quit()
+        # quit()  
         feature_vector = feature_vector.loc[:, feature_list ]   
         
         feature_vector = (feature_vector.pipe(utils.one_hot_encode_col, 'LOCATION', LOCATION_ENCODER))
 
         y_pred_label = LABEL_ENCODER.classes_[CLF.predict(feature_vector.values)[0]]
 
-
+        
         #Creating CSVs for Analytics 
         if mode_location.values[0] != currentlocation : 
             location_final_time  = timestamp
@@ -336,20 +336,6 @@ def animate(i, buffer,):
         # # print(distance)
         
 
-
-        #Try appending to list?
-        # activity_buffer = pd.Series(currentactivity).append
-        # activity_buffer = df_activity.loc[:,'Activity']
-        # # .mode()
-        # print(activity_buffer)
-        # i = 0 
-        # if i < 20 : 
-        #     activity_buffer[i] = [currentactivity]
-        #     i = i+1
-        # else :
-        #     i = 0
-        # activity_buffer = [currentactivity]
-        # print(activity_buffer)
         
         print(f"Patient is in {currentlocation} doing '{currentactivity}' activity. Peaks : {accel_peak.values}")
 
@@ -386,22 +372,6 @@ def animate(i, buffer,):
         lines[k]['GYRO']["y"].set_xdata(buffer[k]['GYRO']["timestamp"])
         lines[k]['GYRO']["z"].set_ydata(buffer[k]['GYRO']["z"])
         lines[k]['GYRO']["z"].set_xdata(buffer[k]['GYRO']["timestamp"])
-
-        #Walking vs Stationary Algorithm
-        distance_buffer_x = x_pos[48:]#length of 68
-        distance_buffer_y = y_pos[48:]
-        distance_x = float(abs(distance_buffer_x[19] - distance_buffer_x[0]))
-        distance_y = float(abs(distance_buffer_y[19] - distance_buffer_y[0]))
-        distance = math.sqrt((distance_x)**2+(distance_y)**2)
-        distance_threshold = 600 #In mm
-        if distance > distance_threshold : 
-            # walk_start = time.time()
-            activity = 'Walking'
-        else : 
-            # walk_end = time.time()
-            activity = 'Stationary'
-            # walking_duration += (walk_end - walk_start)
-        # print(activity)
 
         # Dynamically scale the z-pos graph with a min and max time 
         if buffer[k]['POS']["timestamp"][-1] > max_time: max_time = buffer[k]['POS']["timestamp"][-1] + 0.2
