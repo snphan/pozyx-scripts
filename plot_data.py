@@ -36,7 +36,7 @@ SECONDS_SHOW = 3 # s
 MAV_WINDOW = 20
 NUM_POINTS = SAMPLE_RATE * SECONDS_SHOW * len(constants.REMOTE_IDS) + MAV_WINDOW
 REGIONS = json.load(open('2023-03-14 12:15:31.794149.json'))
-MODEL_FOLDER = '06_06_Model'
+MODEL_FOLDER = '06_07_Model'
 CLF = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'output_model.joblib'))
 LOCATION_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'location_encoder.joblib'))
 LABEL_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'label_encoder.joblib'))
@@ -162,7 +162,6 @@ location_start_time = activity_start_time = time.time()
 # This function is called periodically from FuncAnimation
 def animate(i, buffer,):
     global currentlocation, currentactivity, location_start_time, activity_start_time
-    # Can add start/edn time to csv to remove global variables
     # Clear the buffer
     
     for k in buffer:
@@ -288,9 +287,7 @@ def animate(i, buffer,):
         feature_list = ['LOCATION', 'Peaks_Acc_X', 'Peaks_Acc_Y', 'Peaks_Acc_Z', ]
         feature_list += feature_vector.columns[feature_vector.columns.str.contains('POS')].tolist()
         feature_list += feature_vector.columns[feature_vector.columns.str.contains('_ACC')].tolist()
-        # print(feature_list)
-        # print(feature_vector)
-        # quit()  
+  
         feature_vector = feature_vector.loc[:, feature_list ]   
         
         feature_vector = (feature_vector.pipe(utils.one_hot_encode_col, 'LOCATION', LOCATION_ENCODER))
@@ -325,22 +322,10 @@ def animate(i, buffer,):
         filename_3 = 'RawActivityData.csv'
         with open(filename_3, 'a') as f:
              df_activity.to_csv(f, mode='a', header = f.tell()==0, index = False)
-
-
-        # Buffer holds 68 positional points 
-        # distance_points_x = np.divide(buffer[tag_id]['POS']["x"][0:40],1000)
-        # distance_points_y = np.divide(buffer[tag_id]['POS']["y"][0:40],1000)
-        # distance_points_x = pd.Series(buffer[tag_i]['POS']["x"]).rolling(20).mean().to_numpy()
-        # # Add moving average to these distance_points ".rolling( , )" to a df?  
-        # average_points_x = distance_points_x.rolling(window = 10).mean()      
-        # # print(distance)
-        
-
-        
+                
         print(f"Patient is in {currentlocation} doing '{currentactivity}' activity. Peaks : {accel_peak.values}")
 
-    # activity_buffer = df_activity.loc[:,'Activity']
-    # print(activity_buffer)
+
     ##################################################
 
     # Update line with new Y values
