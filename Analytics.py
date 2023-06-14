@@ -49,14 +49,15 @@ for tag_id in remote_id:
         buffer[tag_id][data_type]["y"] = []
         buffer[tag_id][data_type]["z"] = []
 
-currentlocation = currentactivity = ''
+global currentlocation, currentactivity, location_start_time, activity_start_time, activity_duration
+currentactivity = currentlocation = ''
 location_start_time = activity_start_time = time.time()
 
 
 with open(data_file, 'r') as f:
     all_data = f.readlines(-1) #reads all lines of input csv 
 
-    for i in range(0,len(all_data)): #Increments through each line of selected csv
+    for i in range(0,len(all_data)-20): #Increments through each line of selected csv
         data = all_data[i:NUM_POINTS+i:]
 
         for one_data in data:
@@ -180,11 +181,26 @@ with open(data_file, 'r') as f:
             y_pred_label = LABEL_ENCODER.classes_[CLF.predict(feature_vector.values)[0]]
 
             #Attaches activity label with corresponding timestamp from CSV selected
+            if y_pred_label != currentactivity: 
+                old_activity = currentactivity
+                activity_final_time = timestamp 
+                activity_duration = activity_final_time - activity_start_time
+                activity_start_time = activity_final_time
+                currentactivity = y_pred_label
+                df = pd.DataFrame([[old_activity, activity_duration]], columns=['Activity', 'Duration'])
+                filename_2 = 'ActivityAnalytics.csv'
+                with open(filename_2, 'a') as f:
+                    df.to_csv(f, mode='a', header = f.tell()==0, index = False)
+
+            if i == 0:
+                initial_time = timestamp
+                current_time = timestamp
             currentactivity = y_pred_label
-            df_activity = pd.DataFrame([[timestamp, currentactivity]], columns = ['Time', 'Activity'])
-            filename_3 = 'RawActivity' 
+            df_activity = pd.DataFrame([[currentactivity, timestamp, timestamp - initial_time]], columns = ['Activity', 'Time (UTC)', 'Time'])
+            filename_3 = 'RawActivity.csv' 
             with open(filename_3, 'a') as f:
                 df_activity.to_csv(f, mode='a', header = f.tell()==0, index = False)
+
 
         #Clears data in buffer before looping
         for k in buffer:
@@ -194,8 +210,38 @@ with open(data_file, 'r') as f:
                 buffer[k][data_type]["y"] = []
                 buffer[k][data_type]["z"] = []
 
+
+######################################### Classifier Analytics
+
+classifier_file = pd.read_csv('ActivityAnalytics.csv')
+
+# activity_sessions = {activity: activity - start_time for activity in unique_post_activities}
+# Group the data by 'Activity' and sum the 'Time' for each activity
+activity_totals = classifier_file.groupby('Activity')['Duration'].sum()
+
+# Print the total time for each activity
+for activity, total_time in activity_totals.items():
+    total_time = total_time/60
+    print(f"Activity: {activity}, Total Time: {total_time}")
+
+quit()
+for activity in activity_sessions: 
+    rows_activity = classifier_file[classifier_file['Activity'].str.contains(activity)]
+    print(rows_activity)
+    quit()
+    duration_activity = rows_activity['Time'].sum()
+    activity_sessions[activity] = duration_activity
+    print(activity_sessions)
+
+## Need to gety all unique values and then sum them and plot with percentages
+## SHould have a inputs to type in the real durations fo each activites and then spit out accuracies of model 
+## Need a dataframe or list to cycle through different feature combos ** Difficult
+
 ######################################### Room and Activity Analytics
-# 
+# Using gridspec and seaborn plot all analytic graphs on same plot 
+# Heatmap over floorplan 
+
+
 # room_data = pd.read_csv('RoomAnalytics.csv')
 # activity_data = pd.read_csv('ActivityAnalytics.csv')
 # # adl_list = {'ADL': ['cooking', 'hygiene', 'cleaning', 'changing', 'toileting', 'leisure', 'eating', 'sleep'] }
