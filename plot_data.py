@@ -36,7 +36,7 @@ SECONDS_SHOW = 3 # s
 MAV_WINDOW = 20
 NUM_POINTS = SAMPLE_RATE * SECONDS_SHOW * len(constants.REMOTE_IDS) + MAV_WINDOW
 REGIONS = json.load(open('2023-03-14 12:15:31.794149.json'))
-MODEL_FOLDER = '06_07_Model'
+MODEL_FOLDER = '06_20_Model'
 CLF = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'output_model.joblib'))
 LOCATION_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'location_encoder.joblib'))
 LABEL_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'label_encoder.joblib'))
@@ -323,14 +323,14 @@ def animate(i, buffer,):
         with open(filename_3, 'a') as f:
              df_activity.to_csv(f, mode='a', header = f.tell()==0, index = False)
                 
-        print(f"Patient is in {currentlocation} doing '{currentactivity}' activity. Peaks : {accel_peak.values}")
+        print(f"Patient is at {currentlocation} doing '{currentactivity}' activity. '{timestamp}'") #?Peaks : {accel_peak.values}
 
 
     ##################################################
 
     # Update line with new Y values
     max_time = 0                # To dynamically update the xlim of the z-graph
-    min_time = float("inf")     # To dynamically update the xlim of the z-graph
+    min_time = float("inf")     # To dynamically update the xlim of the z-graph 
     for k in lines:
 
         x_pos = pd.Series(buffer[k]['POS']["x"]).rolling(20).mean().to_numpy()
