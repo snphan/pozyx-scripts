@@ -21,7 +21,8 @@ SECONDS_SHOW = 3 # s
 MAV_WINDOW = 20
 NUM_POINTS = SAMPLE_RATE * SECONDS_SHOW * len(constants.REMOTE_IDS) + MAV_WINDOW
 REGIONS = json.load(open('2023-03-14 12:15:31.794149.json'))
-MODEL_FOLDER = '06_07_Model'
+FURNITURE = json.load(open('Furniture_locations.json'))
+MODEL_FOLDER = '06_20_Model'
 CLF = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'output_model.joblib'))
 LOCATION_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'location_encoder.joblib'))
 LABEL_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'label_encoder.joblib'))
@@ -35,7 +36,7 @@ if len(sys.argv) < 2:
 else: 
     data_file = data_path.joinpath(f"{sys.argv[1]}.csv")
 
-
+# Command + / to unindent
 remote_id = ["0x%0.4x" % id for id in constants.REMOTE_IDS]  # remote device network ID
 buffer = values = names = {}
 
@@ -49,9 +50,9 @@ for tag_id in remote_id:
         buffer[tag_id][data_type]["y"] = []
         buffer[tag_id][data_type]["z"] = []
 
-global currentlocation, currentactivity, location_start_time, activity_start_time, activity_duration
-currentactivity = currentlocation = ''
-location_start_time = activity_start_time = time.time()
+global currentlocation, currentactivity, location_start_time, furniture_start_time, activity_start_time, activity_duration, currentfurniture
+furniture_start_time = location_start_time = activity_start_time = time.time()
+currentlocation = currentactivity = currentfurniture = ' '
 
 
 with open(data_file, 'r') as f:
@@ -115,7 +116,7 @@ with open(data_file, 'r') as f:
             buffer[tag_id]['PRESSURE']["timestamp"].append(timestamp)
             buffer[tag_id]['PRESSURE']["x"].append(pressure)
 
-        
+
         ################################################### ML PREPROCESSING
 
         for tag_id in buffer:
@@ -125,7 +126,7 @@ with open(data_file, 'r') as f:
                     data.append(buffer[tag_id][item][axis])
             data.append(buffer[tag_id]['PRESSURE']['x']) 
             data = np.array(data)
-            
+
             # Cleaning
             df = pd.DataFrame(data.T, columns=['POS_X', 'POS_Y', 'POS_Z', 'Heading', 'Roll', 'Pitch', 'ACC_X', 'ACC_Y', 'ACC_Z', 'GYRO_X', 'GYRO_Y', 'GYRO_Z', 'LINACC_X', 'LINACC_Y', 'LINACC_Z', 'Pressure'])
             cleaned_df = (df
@@ -135,9 +136,9 @@ with open(data_file, 'r') as f:
                     .pipe(utils.drop_columns_that_contain, 'Pressure')
                     .dropna().reset_index(drop=True)
                 )
-            
+
             new_df = cleaned_df[-SECONDS_SHOW*SAMPLE_RATE:] #Holds 3 seconds of data 
-        
+
             # Feature Extraction
             mean = new_df.mean()
             mean.index = ['MEAN_' + ind for ind in mean.index]
@@ -160,10 +161,12 @@ with open(data_file, 'r') as f:
             ypeaks = find_peaks(abs(new_df.iloc[:,4] - new_df.iloc[:,4].mean()), height = 500)
             zpeaks = find_peaks(abs(new_df.iloc[:,5] - new_df.iloc[:,5].mean()), height = 500)
             peaks = [len(xpeaks[1]['peak_heights']), len(ypeaks[1]['peak_heights']), len(zpeaks[1]['peak_heights'])]
-            
+
             column_name = ['Peaks_Acc_X','Peaks_Acc_Y','Peaks_Acc_Z']
 
             mode_location = pd.Series(new_df.copy().pipe(utils.determine_location, REGIONS).loc[:, 'Location'].mode()[0], index=["LOCATION"])
+
+            mode_furniture = pd.Series(new_df.copy().pipe(utils.determine_location, FURNITURE).loc[:, 'Location'].mode()[0], index=["LOCATION"])
 
             accel_peak = pd.Series(peaks, index = column_name)
 
@@ -175,12 +178,12 @@ with open(data_file, 'r') as f:
             feature_list += feature_vector.columns[feature_vector.columns.str.contains('_ACC')].tolist()
 
             feature_vector = feature_vector.loc[:, feature_list ]   
-           
+
             feature_vector = (feature_vector.pipe(utils.one_hot_encode_col, 'LOCATION', LOCATION_ENCODER))
 
             y_pred_label = LABEL_ENCODER.classes_[CLF.predict(feature_vector.values)[0]]
 
-            #Attaches activity label with corresponding timestamp from CSV selected
+            #Attaches activity label with corresponding duration from CSV selected
             if y_pred_label != currentactivity: 
                 old_activity = currentactivity
                 activity_final_time = timestamp 
@@ -188,18 +191,41 @@ with open(data_file, 'r') as f:
                 activity_start_time = activity_final_time
                 currentactivity = y_pred_label
                 df = pd.DataFrame([[old_activity, activity_duration]], columns=['Activity', 'Duration'])
-                filename_2 = 'ActivityAnalytics.csv'
-                with open(filename_2, 'a') as f:
+                filename_1 = 'PostActivityAnalytics.csv'
+                with open(filename_1, 'a') as f:
                     df.to_csv(f, mode='a', header = f.tell()==0, index = False)
 
+            #Attaches activity label with corresponding time (line by line labelling)
             if i == 0:
                 initial_time = timestamp
                 current_time = timestamp
             currentactivity = y_pred_label
             df_activity = pd.DataFrame([[currentactivity, timestamp, timestamp - initial_time]], columns = ['Activity', 'Time (UTC)', 'Time'])
-            filename_3 = 'RawActivity.csv' 
-            with open(filename_3, 'a') as f:
+            filename_2 = 'PostRawActivity.csv' 
+            with open(filename_2, 'a') as f:
                 df_activity.to_csv(f, mode='a', header = f.tell()==0, index = False)
+
+            #Records duration of time spent in rooms
+            if mode_location.values[0] != currentlocation: 
+                location_final_time  = timestamp
+                location_duration = location_final_time - location_start_time
+                location_start_time = location_final_time
+                currentlocation = mode_location.values[0]
+                df = pd.DataFrame([[currentlocation, location_duration]], columns=['Room', 'Duration'])
+                filename_3 = 'PostRoomAnalytics.csv'
+                with open(filename_3, 'a') as f:
+                    df.to_csv(f, mode='a', header = f.tell()==0, index = False)
+
+            # Records duration of time spent at furniture
+            if mode_furniture.values[0] != currentfurniture:
+                furniture_final_time = timestamp
+                furniture_duration = furniture_final_time - furniture_start_time
+                furniture_start_time = furniture_final_time
+                currentfurniture = mode_furniture.values[0]
+                df = pd.DataFrame([[currentfurniture, furniture_duration]], columns=['Furniture', 'Duration'])
+                filename_4 = 'PostFurnitureAnalytics.csv'
+                with open(filename_4, 'a') as f:
+                    df.to_csv(f, mode = 'a', header = f.tell()==0, index = False)
 
 
         #Clears data in buffer before looping
@@ -210,44 +236,82 @@ with open(data_file, 'r') as f:
                 buffer[k][data_type]["y"] = []
                 buffer[k][data_type]["z"] = []
 
+# Figure out why first value of each csv has an enormous negative time value
 
 ######################################### Classifier Analytics
 
-classifier_file = pd.read_csv('ActivityAnalytics.csv')
+activity_file = pd.read_csv('PostActivityAnalytics.csv')
+room_file = pd.read_csv('PostRoomAnalytics.csv')
+furniture_file = pd.read_csv('PostFurnitureAnalytics.csv')
 
-# activity_sessions = {activity: activity - start_time for activity in unique_post_activities}
-# Group the data by 'Activity' and sum the 'Time' for each activity
-activity_totals = classifier_file.groupby('Activity')['Duration'].sum()
+# Group the data by Activity/Room and get duration for each
+activity_totals = activity_file[1:].groupby('Activity')['Duration'].sum()
+activity_dict = activity_totals.to_dict()
+
+location_totals = room_file[1:].groupby('Room')['Duration'].sum()
+location_dict = location_totals.to_dict()
+
+furniture_totals = furniture_file[1:].groupby('Furniture')['Duration'].sum()
+furniture_dict = furniture_totals.to_dict()
+undefined_furniture = furniture_dict.pop('undefined') #Removes undefined furniture from dictionary
+
 
 # Print the total time for each activity
-for activity, total_time in activity_totals.items():
-    total_time = total_time/60
-    print(f"Activity: {activity}, Total Time: {total_time}")
+actions = list(activity_dict.keys())
+action_times = list(activity_dict.values()) 
 
-quit()
-for activity in activity_sessions: 
-    rows_activity = classifier_file[classifier_file['Activity'].str.contains(activity)]
-    print(rows_activity)
-    quit()
-    duration_activity = rows_activity['Time'].sum()
-    activity_sessions[activity] = duration_activity
-    print(activity_sessions)
+print(activity_dict)
 
+rooms = list(location_dict.keys())
+room_times = list(location_dict.values())
+
+furniture = list(furniture_dict.keys())
+furniture_times = list(furniture_dict.values())
+
+#Create multiplot figure for room, activity, walking analytics
+fig = plt.figure()
+gs = GridSpec(12, 12, figure=fig)
+gs.update(wspace=0.3,hspace=0.3)
+activity_plot = fig.add_subplot(gs[:12,:3])
+room_plot = fig.add_subplot(gs[:12,4:8])
+furniture_plot = fig.add_subplot(gs[:12, 9:12])
+
+#Activity Plot
+activity_plot.set_title("User Activity")
+activity_plot.set_ylabel("Duration (Seconds)")
+activity_plot.set_xlabel("Activities")
+activity_plot.bar(actions,action_times)
+activity_plot.set_xticks(range(len(actions)), actions, rotation = 'vertical')
+activity_plot.tick_params(axis='x', which='major', labelsize = 8)
+activity_plot.tick_params(axis='y', which='major', labelsize = 10)
+
+#Room Plot
+room_plot.set_title("Room Activity")
+room_plot.set_ylabel("Duration (Seconds)")
+room_plot.set_xlabel("Rooms")
+room_plot.bar(rooms, room_times)
+room_plot.set_xticks(range(len(rooms)), rooms, rotation = 'vertical')
+room_plot.tick_params(axis='x', which='major', labelsize = 8)
+room_plot.tick_params(axis='y', which='major', labelsize = 10)
+
+#Furniture plot
+furniture_plot.set_title("furniture Activity")
+furniture_plot.set_ylabel("Duration (Seconds)")
+furniture_plot.set_xlabel("furniture")
+furniture_plot.bar(furniture, furniture_times)
+furniture_plot.set_xticks(range(len(furniture)), furniture, rotation = 'vertical')
+furniture_plot.tick_params(axis='x', which='major', labelsize = 8)
+furniture_plot.tick_params(axis='y', which='major', labelsize = 10)
+
+# Heatmap over floorplan 
+# Using gridspec and seaborn plot all analytic graphs on same plot 
 ## Need to gety all unique values and then sum them and plot with percentages
 ## SHould have a inputs to type in the real durations fo each activites and then spit out accuracies of model 
 ## Need a dataframe or list to cycle through different feature combos ** Difficult
+plt.show()
+
 
 ######################################### Room and Activity Analytics
-# Using gridspec and seaborn plot all analytic graphs on same plot 
-# Heatmap over floorplan 
-
-
-# room_data = pd.read_csv('RoomAnalytics.csv')
-# activity_data = pd.read_csv('ActivityAnalytics.csv')
-# # adl_list = {'ADL': ['cooking', 'hygiene', 'cleaning', 'changing', 'toileting', 'leisure', 'eating', 'sleep'] }
-# unique_activities = pd.unique(activity_data.iloc[:,0]) 
-# unique_rooms = pd.unique(room_data.iloc[:,0])
-
 # #Assigns all activity/room labels to dictionary
 # activities_duration = {act: 0 for act in unique_activities} 
 # room_duration = {room: 0 for room in unique_rooms}
@@ -263,39 +327,3 @@ for activity in activity_sessions:
 #     dur_room = rows_room['Duration'].sum()/60 
 #     room_duration[room] = dur_room
 
-
-# #Obtains room/activity labels and durations
-# names_act = list(activities_duration.keys()) 
-# values_act = list(activities_duration.values()) 
-# names_room = list(room_duration.keys())
-# values_room = list(room_duration.values())
-
-# num_activities = range(len(activities_duration))
-
-# #Create multiplot figure for room, activity, walking analytics
-# fig = plt.figure()
-# gs = GridSpec(9, 9, figure=fig)
-# gs.update(wspace=0.3,hspace=0.3)
-# activity = fig.add_subplot(gs[:9,:4])
-# room = fig.add_subplot(gs[:9,5:9])
-
-# #Activity Plot
-# activity.set_title("User Activity")
-# activity.set_ylabel("Duration (Mins)")
-# activity.set_xlabel("Activities")
-# activity.bar(names_act,values_act)
-# activity.set_xticks(range(len(activities_duration)), names_act, rotation = 'vertical')
-# activity.tick_params(axis='x', which='major', labelsize = 8)
-# activity.tick_params(axis='y', which='major', labelsize = 10)
-
-# #Room Plot
-# room.set_title("Room Activity")
-# room.set_ylabel("Duration (Mins)")
-# room.set_xlabel("Rooms")
-# room.bar(names_room, values_room)
-# room.set_xticks(range(len(room_duration)), names_room, rotation = 'vertical')
-# room.tick_params(axis='x', which='major', labelsize = 8)
-# room.tick_params(axis='y', which='major', labelsize = 10)
-# print(names_room)
-
-#####################################################
