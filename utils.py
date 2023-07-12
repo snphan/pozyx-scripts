@@ -11,6 +11,74 @@ from matplotlib.patches import Rectangle
 from sklearn.preprocessing import OneHotEncoder
 
 #MARK: UTIITY FUNCTIONS
+def generate_matrix_array_correct(correct_labels, correct_predictions, matrix):
+    EATING = 0,0 
+    WALK = 1,1
+    STATIONARY = 2,2
+    MOP = 3,3
+    TRANSFER = 4,4
+    OPENDISHWASHER = 5,5
+    WIPE = 6,6
+    global x
+
+    if correct_labels == 'EATING':
+        matrix[EATING] += correct_predictions
+        x = 0
+    elif correct_labels == 'WALK':
+        matrix[WALK] += correct_predictions
+        x = 1
+        #matrix[incorrect_labels[label]] = incorrect_num_labels[label]
+    elif correct_labels == 'STATIONARY':
+        matrix[STATIONARY] += correct_predictions
+        x = 2
+    elif correct_labels == 'MOP':
+        matrix[MOP] += correct_predictions
+        x = 3
+    elif correct_labels == 'TRANSFER':
+        matrix[TRANSFER] += correct_predictions
+        x = 4
+    elif correct_labels == 'OPENDISHWASHER':
+        matrix[OPENDISHWASHER] += correct_predictions
+        x = 5
+    elif correct_labels == 'WIPE':
+        matrix[WIPE] += correct_predictions
+        x = 6
+
+    print(matrix)
+
+
+def generate_matrix_array_incorrect(incorrect_labels, incorrect_num_labels, matrix):
+    global x
+    if incorrect_labels == 'EATING':
+        y = 0
+        matrix[x,y] += incorrect_num_labels   
+
+    elif incorrect_labels == 'WALK':
+        y = 1
+        matrix[x,y] += incorrect_num_labels  
+             
+    elif incorrect_labels == 'STATIONARY':
+        y = 2
+        matrix[x,y] += incorrect_num_labels
+        
+    elif incorrect_labels == 'MOP':
+        y = 3
+        matrix[x,y] += incorrect_num_labels
+        
+    elif incorrect_labels == 'TRANSFER':
+        y = 4
+        matrix[x,y] += incorrect_num_labels
+        
+    elif incorrect_labels == 'OPENDISHWASHER':
+        y = 5
+        matrix[x,y] += incorrect_num_labels
+        
+    elif incorrect_labels == 'WIPE':
+        y = 6
+        matrix[x,y] += incorrect_num_labels
+
+    print(matrix)
+
 
 def list_from_series(data):
     return data.values.tolist()
