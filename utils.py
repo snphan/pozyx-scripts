@@ -19,6 +19,7 @@ def generate_matrix_array_correct(correct_labels, correct_predictions, matrix):
     TRANSFER = 4,4
     OPENDISHWASHER = 5,5
     WIPE = 6,6
+    OTHER = 7,7
     global x
 
     if correct_labels == 'EATING':
@@ -43,6 +44,9 @@ def generate_matrix_array_correct(correct_labels, correct_predictions, matrix):
     elif correct_labels == 'WIPE':
         matrix[WIPE] += correct_predictions
         x = 6
+    elif correct_labels == 'OTHER':
+        x = 7
+        matrix[OTHER] += correct_predictions
 
     print(matrix)
 
@@ -56,7 +60,7 @@ def generate_matrix_array_incorrect(incorrect_labels, incorrect_num_labels, matr
     elif incorrect_labels == 'WALK':
         y = 1
         matrix[x,y] += incorrect_num_labels  
-             
+
     elif incorrect_labels == 'STATIONARY':
         y = 2
         matrix[x,y] += incorrect_num_labels
@@ -77,7 +81,11 @@ def generate_matrix_array_incorrect(incorrect_labels, incorrect_num_labels, matr
         y = 6
         matrix[x,y] += incorrect_num_labels
 
-    print(matrix)
+    elif incorrect_labels == 'OTHER':
+        y = 7
+        matrix[x,y] += incorrect_num_labels
+
+    # print(matrix)
 
 
 def list_from_series(data):
