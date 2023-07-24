@@ -401,8 +401,9 @@ def make_confusion_matrix(cf,
                 precision = TP/(TP+FP)
                 sensitivity = TP/(TP+FN)
                 specificity = TN/(FP+TN)
+                f1_score = (2*(precision*sensitivity))/(precision + sensitivity)
 
-                stats_text += f"\n{category}: Precision={precision:.2f}, Sensitivity={sensitivity:.2f}, Specificity={specificity:.2f}"
+                stats_text += f"\n{category}: Precision={precision:.2f}, Sensitivity={sensitivity:.2f}, Specificity={specificity:.2f}, F1 Score={f1_score:.2f}"
     else:
         stats_text = ""
 
