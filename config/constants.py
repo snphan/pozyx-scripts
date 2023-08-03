@@ -16,9 +16,9 @@ ANCHOR_CONFIG = {
         DeviceCoordinates(0x6863, 1, Coordinates(2517, 9931, 2400)), #Desk
         DeviceCoordinates(0x684B, 1, Coordinates(800, 4500, 2400)), #TV
         DeviceCoordinates(0x1139, 1, Coordinates(9255, 2813, 2400)), #Kitchen
+        DeviceCoordinates(0x117B, 1, Coordinates(4400, 0, 2400)), #Front of Bedroom              
+        DeviceCoordinates(0x1149, 1, Coordinates(6530, 7400, 2400)), #Living Room Table  
         DeviceCoordinates(0x1101, 1, Coordinates(5080, 3370, 2400)), #Couch
-        DeviceCoordinates(0x1149, 1, Coordinates(6530, 7400, 2400)), #Living Room Table
-        DeviceCoordinates(0x117B, 1, Coordinates(4400, 0, 2400)) #Front of Bedroom
     ],
     "ILS_8H": [
         DeviceCoordinates(0x685C, 1, Coordinates(10306, 8351, 2400)),
