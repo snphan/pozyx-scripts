@@ -19,7 +19,7 @@ def generate_matrix_array_correct(correct_labels, correct_predictions, matrix):
     TRANSFER = 4,4
     OPENDISHWASHER = 5,5
     WIPE = 6,6
-    OTHER = 7,7
+    #OTHER = 7,7
     global x
 
     if correct_labels == 'EATING':
@@ -44,9 +44,9 @@ def generate_matrix_array_correct(correct_labels, correct_predictions, matrix):
     elif correct_labels == 'WIPE':
         matrix[WIPE] += correct_predictions
         x = 6
-    elif correct_labels == 'OTHER':
-        x = 7
-        matrix[OTHER] += correct_predictions
+    # elif correct_labels == 'OTHER':
+    #     x = 7
+    #     matrix[OTHER] += correct_predictions
 
     print(matrix)
 
@@ -81,9 +81,9 @@ def generate_matrix_array_incorrect(incorrect_labels, incorrect_num_labels, matr
         y = 6
         matrix[x,y] += incorrect_num_labels
 
-    elif incorrect_labels == 'OTHER':
-        y = 7
-        matrix[x,y] += incorrect_num_labels
+    # elif incorrect_labels == 'OTHER':
+    #     y = 7
+    #     matrix[x,y] += incorrect_num_labels
 
     # print(matrix)
 
@@ -403,7 +403,16 @@ def make_confusion_matrix(cf,
                 specificity = TN/(FP+TN)
                 f1_score = (2*(precision*sensitivity))/(precision + sensitivity)
 
+                # tp_buffer += TP
+                # tn_buffer += TN
+                # fp_buffer += FP
+                # fn_buffer += FN
+
+                # fpr = fp_buffer/(fp_buffer+tn_buffer)
+                # tpr = tp_buffer/(tp_buffer+fn_buffer)
                 stats_text += f"\n{category}: Precision={precision:.2f}, Sensitivity={sensitivity:.2f}, Specificity={specificity:.2f}, F1 Score={f1_score:.2f}"
+                #print(tp_buffer)
+
     else:
         stats_text = ""
 

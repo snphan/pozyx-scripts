@@ -8,7 +8,6 @@ import time
 import sys
 from config import constants
 from pathlib import Path
-import pandas as pd
 import utils
 from scipy.signal import find_peaks
 import joblib
@@ -20,10 +19,9 @@ from matplotlib import patches
 import dataframe_image as dfi
 from collections import defaultdict
 from datetime import datetime
-import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy
 import glob
+from sklearn import metrics
 
 ########################## ML Cleaning/Classification
 SAMPLE_RATE = 16 # Hz
@@ -32,14 +30,14 @@ MAV_WINDOW = 20
 NUM_POINTS = SAMPLE_RATE * SECONDS_SHOW * len(constants.REMOTE_IDS) + MAV_WINDOW
 REGIONS = json.load(open('2023-03-14 12:15:31.794149.json'))
 FURNITURE = json.load(open('Furniture_locations.json'))
-MODEL_FOLDER = 'RandomForest_4sec' #OG is 'SVM_Poly_3sec'
+MODEL_FOLDER = 'SVM_Poly_7Actions_1sec' #OG is 'SVM_Poly_3sec'
 CLF = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'output_model.joblib'))
 LOCATION_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'location_encoder.joblib'))
 LABEL_ENCODER = joblib.load(Path().joinpath('models', MODEL_FOLDER, 'label_encoder.joblib'))
 DATA_TYPES = ['POS', 'LINACC', 'ACC', 'GYRO', 'PRESSURE', 'ORIENT'] # For orientation x = heading, y = roll, z = pitch
 
 global correct_labels, correct_predictions, incorrect_labels, incorrect_num_labels, label_mode, prediction_mode, matrix, x, y
-matrix = np.zeros((8,8), dtype = int)
+matrix = np.zeros((7,7), dtype = int)
 
 output_dir = Path().joinpath("predictions")
 data_path = Path(__file__).resolve().parents[0].joinpath("data")
@@ -265,7 +263,7 @@ if section == "a" :
 ######################################### Classifier Results
 elif section == "b":
 
-    prediction_file = sorted(glob.glob("predictions/RandomForest_4Sec_Predictions" + "/*.csv"))
+    prediction_file = sorted(glob.glob("predictions/Models with 7 Activities/SVM_Poly_7A_1Sec_Predictions" + "/*.csv"))
     experiment_file = sorted(glob.glob("experiments" + "/*.csv"))
 
     folder_size = range(len(experiment_file))
@@ -276,7 +274,7 @@ elif section == "b":
         prediction_data = pd.read_csv(prediction_file[num_file])
         prediction_data.columns = ['Activity', 'Time (UTC)', 'Time'] 
         
-        experiment_activities = ['EATING', 'WALK', 'STATIONARY', 'MOP', 'TRANSFER', 'OPENDISHWASHER', 'WIPE', 'OTHER']
+        experiment_activities = ['EATING', 'WALK', 'STATIONARY', 'MOP', 'TRANSFER', 'OPENDISHWASHER', 'WIPE'] #Can add 'OTHER' if including all activities, need to add it in utils.py function
        
         activity_start_times = video_data['Start Timestamp']
         activity_end_times = video_data['End Timestamp']
@@ -292,9 +290,10 @@ elif section == "b":
 
             prediction_activities = sorted(prediction_data['Activity'][prediction_start[0]:prediction_end[0]].unique()) #Puts all activity labels predicted in a list
 
-            for action_num in range(len(prediction_activities)): 
-                if prediction_activities[action_num] not in experiment_activities: 
-                    prediction_activities[action_num] == 'OTHER'
+            #If you're including other activities 
+            # for action_num in range(len(prediction_activities)): 
+            #     if prediction_activities[action_num] not in experiment_activities: 
+            #         prediction_activities[action_num] == 'OTHER'
 
             
             predicted_labels = pd.Series(prediction_data[prediction_start[0]:prediction_end[0]].groupby('Activity').size()) #.tolist())
@@ -307,10 +306,7 @@ elif section == "b":
                 pass
     
             incorrect_predictions = predicted_labels.sum() - correct_predictions
-            print(incorrect_predictions)
             predicted_accuracy = ((correct_predictions)/(predicted_labels.sum()))*100
-
-            print(predicted_labels)
             incorrect_labels = predicted_labels.axes[0].tolist()
             
             for label_index in range(len(incorrect_labels)):
@@ -327,16 +323,23 @@ elif section == "b":
             
             print(incorrect_labels)
             utils.generate_matrix_array_correct(correct_labels, correct_predictions, matrix)
+            y = matrix
             print(f" There were {predicted_labels.sum()} predictions, {correct_predictions} were correct as {correct_labels}, giving an accuracy of {round(predicted_accuracy,2)}. Column # {prediction_start} - {prediction_end}")
             
             for label in range(len(incorrect_labels)):
 
                 utils.generate_matrix_array_incorrect(incorrect_labels[label], incorrect_num_labels[label], matrix)
-
                 print(f" {incorrect_labels[label]} was misclassified {incorrect_num_labels[label]} times")
                 print(100 * '-') 
+            pred = matrix
         #print(matrix)
-        activity_categories = numpy.array(['Eating', 'Walking', 'Stationary', 'Mopping', 'Transfers', 'Dishwasher', 'Wiping', ' Other'  ])
+
+        # fpr, tpr, thresholds = metrics.roc_curve(y, pred)
+        # roc_auc = metrics.auc(fpr, tpr)
+        # display = metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name='example estimator')
+        # display.plot()
+
+        activity_categories = np.array(['Eating', 'Walking', 'Stationary', 'Mopping', 'Transfers', 'Dishwasher', 'Wiping' ]) #'OTHER'
         confusion_matrix = utils.make_confusion_matrix(matrix, categories=activity_categories, figsize=(2,2), percent=False, title="Confusion Matrix on Test Set")
 
 
