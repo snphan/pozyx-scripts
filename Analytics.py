@@ -262,12 +262,13 @@ if section == "a" :
 # Figure out why first value of each csv has an enormous negative time value (Something to do with the substraction of values using the python time module)
 ######################################### Classifier Results
 elif section == "b":
-
-    prediction_file = sorted(glob.glob("predictions/Models with 7 Activities/SVM_Poly_7A_1Sec_Predictions" + "/*.csv"))
+    #Input directory for prediction files
+    prediction_file = sorted(glob.glob("predictions/Models with 7 Activities/DecisionTree_7A_4Sec_Predictions" + "/*.csv"))
     experiment_file = sorted(glob.glob("experiments" + "/*.csv"))
 
     folder_size = range(len(experiment_file))
 
+    #Cycles through each file and determines correct/incorrect predictions and outputs results into confusion matrix
     for num_file in folder_size: 
 
         video_data = pd.read_csv(experiment_file[num_file])
@@ -296,7 +297,8 @@ elif section == "b":
             #         prediction_activities[action_num] == 'OTHER'
 
             
-            predicted_labels = pd.Series(prediction_data[prediction_start[0]:prediction_end[0]].groupby('Activity').size()) #.tolist())
+            predicted_labels = pd.Series(prediction_data[prediction_start[0]:prediction_end[0]].groupby('Activity').size()) # Groups activities together
+
 
             try:
                 correct_predictions = predicted_labels[prediction_activities.index(correct_labels)]
@@ -306,9 +308,10 @@ elif section == "b":
                 pass
     
             incorrect_predictions = predicted_labels.sum() - correct_predictions
-            predicted_accuracy = ((correct_predictions)/(predicted_labels.sum()))*100
+            predicted_accuracy = ((correct_predictions)/(predicted_labels.sum()))*100 
             incorrect_labels = predicted_labels.axes[0].tolist()
             
+            # Only used if other activities are included in training set 
             for label_index in range(len(incorrect_labels)):
                 if incorrect_labels[label_index] not in experiment_activities:
                     incorrect_labels[label_index] = 'OTHER'
@@ -317,7 +320,7 @@ elif section == "b":
 
             try:
                 incorrect_labels.pop(prediction_activities.index(correct_labels))
-                incorrect_num_labels.pop(prediction_activities.index(correct_labels))
+                incorrect_num_labels.pop(prediction_activities.index(correct_labels)) 
             except:
                 pass
             
@@ -339,8 +342,8 @@ elif section == "b":
         # display = metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name='example estimator')
         # display.plot()
 
-        activity_categories = np.array(['Eating', 'Walking', 'Stationary', 'Mopping', 'Transfers', 'Dishwasher', 'Wiping' ]) #'OTHER'
-        confusion_matrix = utils.make_confusion_matrix(matrix, categories=activity_categories, figsize=(2,2), percent=False, title="Confusion Matrix on Test Set")
+        activity_categories = np.array(['Eating', 'Walking', 'Stationary', 'Mopping', 'Transfers', 'Dishwasher', 'Wiping' ]) #Row/Column labels for confusion matrix
+        confusion_matrix = utils.make_confusion_matrix(matrix, categories=activity_categories, figsize=(2,2), percent=False, title="Confusion Matrix on Test Set") #Takes prediction array and labels to generate matrix
 
 
 ######################################### Classifier Analytics

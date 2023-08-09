@@ -11,7 +11,9 @@ from matplotlib.patches import Rectangle
 from sklearn.preprocessing import OneHotEncoder
 
 #MARK: UTIITY FUNCTIONS
+#Adds correct predicitons to confusion matrix
 def generate_matrix_array_correct(correct_labels, correct_predictions, matrix):
+    # Array positions of columns
     EATING = 0,0 
     WALK = 1,1
     STATIONARY = 2,2
@@ -22,6 +24,7 @@ def generate_matrix_array_correct(correct_labels, correct_predictions, matrix):
     #OTHER = 7,7
     global x
 
+    #Checks prediction label to determine location
     if correct_labels == 'EATING':
         matrix[EATING] += correct_predictions
         x = 0
@@ -50,9 +53,10 @@ def generate_matrix_array_correct(correct_labels, correct_predictions, matrix):
 
     print(matrix)
 
-
+#Adds incorrect predictions to confusion matrix
 def generate_matrix_array_incorrect(incorrect_labels, incorrect_num_labels, matrix):
     global x
+    #Checks prediction label to determine location
     if incorrect_labels == 'EATING':
         y = 0
         matrix[x,y] += incorrect_num_labels   
@@ -91,6 +95,7 @@ def generate_matrix_array_incorrect(incorrect_labels, incorrect_num_labels, matr
 def list_from_series(data):
     return data.values.tolist()
 
+#Takes position and determines if its within bounds of defined regions(rooms)
 def what_location(x, y, regions):
     for k, v in regions.items():
         path = mpltPath.Path(v)
