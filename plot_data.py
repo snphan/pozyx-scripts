@@ -55,12 +55,13 @@ bg_options = {
 }
 ####################################################################################################
 data_path = Path(__file__).resolve().parents[0].joinpath("data")
-
+# user inputs csv file name that's being used by multitag.py
 if len(sys.argv) < 2:
     data_file = data_path.joinpath(input("type the name of data file: ") + ".csv")
 else: 
     data_file = data_path.joinpath(f"{sys.argv[1]}.csv")
 
+# Select location (ILS or Glen Research)
 location = input(f'Select location {("/").join(list(bg_options.keys()))}: ')
 
 if location not in bg_options:
@@ -164,6 +165,7 @@ def animate(i, buffer,):
     global currentlocation, currentactivity, location_start_time, activity_start_time
     # Clear the buffer
     
+    # Seperates data into list containing each type of data from wristband
     for k in buffer:
         for data_type in DATA_TYPES:
             buffer[k][data_type]["timestamp"] = []
@@ -251,7 +253,7 @@ def animate(i, buffer,):
                 .dropna().reset_index(drop=True)
             )
 
-        # Feature Extraction
+        # Feature Extraction - Generates stats on each type of inpiut data to be used as feature
         mean = cleaned_df.mean()
         mean.index = ['MEAN_' + ind for ind in mean.index]
 
@@ -270,6 +272,7 @@ def animate(i, buffer,):
         min_value = cleaned_df.min()
         min_value.index = ['MIN_' + ind for ind in min_value.index]
 
+        #Peak detection- Records number of peaks over threshold during time window
         xpeaks = find_peaks(abs(cleaned_df.iloc[:,3] - cleaned_df.iloc[:,3].mean()), height = 500)
         ypeaks = find_peaks(abs(cleaned_df.iloc[:,4] - cleaned_df.iloc[:,4].mean()), height = 500)
         zpeaks = find_peaks(abs(cleaned_df.iloc[:,5] - cleaned_df.iloc[:,5].mean()), height = 500)
@@ -285,8 +288,8 @@ def animate(i, buffer,):
 
         # Feature selection
         feature_list = ['LOCATION', 'Peaks_Acc_X', 'Peaks_Acc_Y', 'Peaks_Acc_Z', ]
-        feature_list += feature_vector.columns[feature_vector.columns.str.contains('POS')].tolist()
-        feature_list += feature_vector.columns[feature_vector.columns.str.contains('_ACC')].tolist()
+        feature_list += feature_vector.columns[feature_vector.columns.str.contains('POS')].tolist() # Adds positioning data to feature list
+        feature_list += feature_vector.columns[feature_vector.columns.str.contains('_ACC')].tolist() # Adds accelerometry data to feature list
   
         feature_vector = feature_vector.loc[:, feature_list ]   
         
@@ -295,7 +298,7 @@ def animate(i, buffer,):
         y_pred_label = LABEL_ENCODER.classes_[CLF.predict(feature_vector.values)[0]]
 
         
-        #Creating CSVs for Analytics 
+        #Creates CSV for room durations  
         if mode_location.values[0] != currentlocation : 
             location_final_time  = timestamp
             location_duration = location_final_time - location_start_time
@@ -307,6 +310,7 @@ def animate(i, buffer,):
                 df.to_csv(f, mode='a', header = f.tell()==0, index = False)
             # df.to_csv('RoomAnalytics.csv', mode='a', index=False, header = None)
         
+        #Creates CSV for activity durations
         if y_pred_label != currentactivity : 
             activity_final_time = timestamp 
             activity_duration = activity_final_time - activity_start_time
@@ -318,6 +322,7 @@ def animate(i, buffer,):
                 df.to_csv(f, mode='a', header = f.tell()==0, index = False)
             # df.to_csv('RoomAnalytics.csv', mode='a', index=False, header = None)
 
+        #Creates csv to record models prediction labels
         df_activity = pd.DataFrame([[timestamp, currentactivity]], columns = ['Time', 'Activity'])
         filename_3 = 'RawActivityData.csv'
         with open(filename_3, 'a') as f:

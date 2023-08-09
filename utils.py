@@ -11,7 +11,9 @@ from matplotlib.patches import Rectangle
 from sklearn.preprocessing import OneHotEncoder
 
 #MARK: UTIITY FUNCTIONS
+#Adds correct predicitons to confusion matrix
 def generate_matrix_array_correct(correct_labels, correct_predictions, matrix):
+    # Array positions of columns
     EATING = 0,0 
     WALK = 1,1
     STATIONARY = 2,2
@@ -19,9 +21,10 @@ def generate_matrix_array_correct(correct_labels, correct_predictions, matrix):
     TRANSFER = 4,4
     OPENDISHWASHER = 5,5
     WIPE = 6,6
-    OTHER = 7,7
+    #OTHER = 7,7
     global x
 
+    #Checks prediction label to determine location
     if correct_labels == 'EATING':
         matrix[EATING] += correct_predictions
         x = 0
@@ -44,15 +47,16 @@ def generate_matrix_array_correct(correct_labels, correct_predictions, matrix):
     elif correct_labels == 'WIPE':
         matrix[WIPE] += correct_predictions
         x = 6
-    elif correct_labels == 'OTHER':
-        x = 7
-        matrix[OTHER] += correct_predictions
+    # elif correct_labels == 'OTHER':
+    #     x = 7
+    #     matrix[OTHER] += correct_predictions
 
     print(matrix)
 
-
+#Adds incorrect predictions to confusion matrix
 def generate_matrix_array_incorrect(incorrect_labels, incorrect_num_labels, matrix):
     global x
+    #Checks prediction label to determine location
     if incorrect_labels == 'EATING':
         y = 0
         matrix[x,y] += incorrect_num_labels   
@@ -81,9 +85,9 @@ def generate_matrix_array_incorrect(incorrect_labels, incorrect_num_labels, matr
         y = 6
         matrix[x,y] += incorrect_num_labels
 
-    elif incorrect_labels == 'OTHER':
-        y = 7
-        matrix[x,y] += incorrect_num_labels
+    # elif incorrect_labels == 'OTHER':
+    #     y = 7
+    #     matrix[x,y] += incorrect_num_labels
 
     # print(matrix)
 
@@ -91,6 +95,7 @@ def generate_matrix_array_incorrect(incorrect_labels, incorrect_num_labels, matr
 def list_from_series(data):
     return data.values.tolist()
 
+#Takes position and determines if its within bounds of defined regions(rooms)
 def what_location(x, y, regions):
     for k, v in regions.items():
         path = mpltPath.Path(v)
@@ -403,7 +408,16 @@ def make_confusion_matrix(cf,
                 specificity = TN/(FP+TN)
                 f1_score = (2*(precision*sensitivity))/(precision + sensitivity)
 
+                # tp_buffer += TP
+                # tn_buffer += TN
+                # fp_buffer += FP
+                # fn_buffer += FN
+
+                # fpr = fp_buffer/(fp_buffer+tn_buffer)
+                # tpr = tp_buffer/(tp_buffer+fn_buffer)
                 stats_text += f"\n{category}: Precision={precision:.2f}, Sensitivity={sensitivity:.2f}, Specificity={specificity:.2f}, F1 Score={f1_score:.2f}"
+                #print(tp_buffer)
+
     else:
         stats_text = ""
 
